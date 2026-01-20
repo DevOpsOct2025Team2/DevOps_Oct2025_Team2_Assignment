@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% set title = "Admin Console" %}
+{% set page = "admin" %}
+{% block content %}
+  <main class="page-shell">
+    <section class="card page-card">
+      <span class="badge admin">Admin</span>
+      <h1>Admin console</h1>
+      <p class="lead">
+        You are signed in as <strong>{{ user.username }}</strong>.
+      </p>
+      <p class="muted">
+        This area is reserved for operational oversight and protected actions.
+      </p>
+      <div class="actions">
+        <a class="ghost" href="/logout">Log out</a>
+      </div>
+    </section>
+  </main>
+{% endblock %}

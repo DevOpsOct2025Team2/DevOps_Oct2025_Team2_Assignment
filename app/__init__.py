@@ -11,7 +11,15 @@ def create_app(config_name=None):
     app.config.from_object(f'app.config.{config_name.capitalize()}Config')
     
     # Initialize extensions
-    CORS(app)
+    cors_origins = app.config.get("CORS_ORIGINS")
+    if cors_origins:
+        origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+    else:
+        origins = None
+    if origins:
+        CORS(app, supports_credentials=True, origins=origins)
+    else:
+        CORS(app, supports_credentials=True)
     
     # Register blueprints
     from app.routes import main_bp, api_bp
