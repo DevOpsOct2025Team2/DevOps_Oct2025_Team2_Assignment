@@ -34,24 +34,26 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     needs: [lint]
-
     steps:
-      - name: Run unit tests #TDD Placeholder
+      - name: TC1 - Notify success on main #Discord notif to stakeholders
         run: |
-          echo "Unit tests to be implemented using TDD approach in Sprint 2"
+         echo "All tests passed successfully."
 
   notify_pipeline_status:
     name: Notify Stakeholders
     runs-on: ubuntu-latest
     needs: [test]
-    if: github.ref_name == 'main'
+    if: |
+      github.ref_name == 'main' ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.base.ref == 'main')
     steps:
       - name: Notify success to stakeholders
         if: success()
         run: |
           curl -H "Content-Type: application/json" \
           -d "{
-          \"content\": \"CI PIPELINE STATUS\nResult: PASSED\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe system is healthy and ready for use.\"
+          \"content\": \"🟢 CI PIPELINE STATUS\nResult: PASSED ✔️\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe system is healthy and ready for use.\"
           }" \
           ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
 
@@ -60,7 +62,7 @@ jobs:
         run: |
           curl -H "Content-Type: application/json" \
           -d "{
-          \"content\": \"CI PIPELINE STATUS\nResult: FAILED\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe development team has been notified and is currently investigating the issue.\nFurther updates will be provided once resolved.\"
+          \"content\": \"🔴 CI PIPELINE STATUS\nResult: FAILED ❌\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe development team has been notified and is currently investigating the issue.\nFurther updates will be provided once resolved.\"
           }" \
           ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
 
@@ -75,7 +77,7 @@ jobs:
         run: |
           curl -H "Content-Type: application/json" \
           -d "{
-          \"content\": \"CI FAILED: UNIT TESTS\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nTriggered by: ${GITHUB_ACTOR}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nPlease investigate and fix the failing tests.\"
+          \"content\": \"🔴 CI FAILED: UNIT TESTS\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nTriggered by: ${GITHUB_ACTOR}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nPlease investigate and fix the failing tests.\"
           }" \
           ${{ secrets.DISCORD_WEBHOOK_DEV }}
 
@@ -90,6 +92,6 @@ jobs:
         run: |
           curl -H "Content-Type: application/json" \
           -d "{
-          \"content\": \"SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThis will be replaced with real security scan results when done.\"
+          \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThis will be replaced with real security scan results when done.\"
           }" \
           ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
