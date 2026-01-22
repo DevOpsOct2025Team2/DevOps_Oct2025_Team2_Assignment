@@ -83,16 +83,16 @@ jobs:
           }" \
           ${{ secrets.DISCORD_WEBHOOK_DEV }}
 
-  # notify_security_alerts:
-  #   name: Notify Security Alerts
-  #   runs-on: ubuntu-latest
-  #   needs: [test]
-  #   if: failure()
-  #   steps:
-  #     - name: Notify security channel #SCA/SAST/DAST Placeholder
-  #       run: |
-  #         curl -H "Content-Type: application/json" \
-  #         -d "{
-  #         \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThis will be replaced with real security scan results when done.\"
-  #         }" \
-  #         ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
+  notify_security_alerts:
+    name: Notify Security Alerts
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: failure()
+    steps:
+      - name: Notify security channel #SCA/SAST/DAST Placeholder
+        run: |
+          curl -H "Content-Type: application/json" \
+          -d "{
+          \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThis will be replaced with real security scan results when done.\"
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
