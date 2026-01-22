@@ -1,0 +1,107 @@
+# DAST (Dynamic Application Security Testing) with OWASP ZAP
+name: 3. DAST - Live Application Scan
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dast:
+    name: OWASP ZAP Scan (DAST)
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Step 2: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      # Step 4: Start the application in background
+      - name: Start Flask application
+        run: |
+          python app.py &
+          sleep 10  # Wait for app to start
+          echo "Application started on http://localhost:5000"
+      
+      # Step 5: Verify application is running
+      - name: Verify application is running
+        run: |
+          curl -f http://localhost:5000 || exit 1
+          echo "Application is responding"
+      
+      # Step 6: Run OWASP ZAP Baseline Scan
+      # ✅ CORRECT VERSION: v0.14.0 (not v0.15.0)
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://localhost:5000'
+          cmd_options: '-a'
+          allow_issue_writing: false
+          artifact_name: 'zap-baseline-scan'  # ✅ Override artifact name!
+        continue-on-error: true
+
+      - name: Rename baseline reports
+        if: always()
+        run: |
+          mv report_html.html baseline_report.html || true
+          mv report_json.json baseline_report.json || true
+          mv report_md.md baseline_report.md || true
+
+      # ✅ Manual artifact upload with proper naming
+      - name: Upload ZAP baseline reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-baseline-reports
+          path: |
+            baseline_report.html
+            baseline_report.json
+            baseline_report.md
+      
+      # Step 7: Run OWASP ZAP Full Scan (more thorough)
+      # ✅ CORRECT VERSION: v0.12.0 (not v0.15.0)
+      - name: ZAP Full Scan
+        uses: zaproxy/action-full-scan@v0.12.0
+        with:
+          target: 'http://localhost:5000'
+          cmd_options: '-a -j'
+          allow_issue_writing: false
+          artifact_name: 'zap-fullscan-scan'  # ✅ Override artifact name!
+        continue-on-error: true
+
+      - name: Rename full scan reports
+        if: always()
+        run: |
+          mv report_html.html fullscan_report.html || true
+          mv report_json.json fullscan_report.json || true
+          mv report_md.md fullscan_report.md || true
+
+      # ✅ Unique artifact name for full scan results
+      - name: Upload ZAP fullscan reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-fullscan-reports
+          path: |
+            fullscan_report.html
+            fullscan_report.json
+            fullscan_report.md
