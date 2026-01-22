@@ -35,36 +35,38 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint]
     steps:
-      - name: TC1 - Notify success on main #Discord notif to stakeholders
-        run: |
-         echo "All tests passed successfully."
+      - name: TC2 - Notify failure on main #Discord notif to stakeholders
+        run: exit 1
 
   notify_pipeline_status:
     name: Notify Stakeholders
     runs-on: ubuntu-latest
     needs: [test]
+    #keep (github.event_name == 'pull_request' && 
+    #github.event.pull_request.base.ref == 'main')
+    #only for now TDD CI testing, remove later
     if: |
-      github.ref_name == 'main' ||
-      (github.event_name == 'pull_request' &&
-      github.event.pull_request.base.ref == 'main')
+        github.ref_name == 'main' ||
+        (github.event_name == 'pull_request' && 
+        github.event.pull_request.base.ref == 'main')
     steps:
       - name: Notify success to stakeholders
         if: success()
         run: |
           curl -H "Content-Type: application/json" \
           -d "{
-          \"content\": \"🟢 CI PIPELINE STATUS\nResult: PASSED ✔️\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe system is healthy and ready for use.\"
+          \"content\": \"🟢 CI PIPELINE STATUS\nResult: PASSED ✅\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe system is healthy and ready for use.\"
           }" \
           ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
 
-      - name: Notify failure to stakeholders
-        if: failure()
-        run: |
-          curl -H "Content-Type: application/json" \
-          -d "{
-          \"content\": \"🔴 CI PIPELINE STATUS\nResult: FAILED ❌\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe development team has been notified and is currently investigating the issue.\nFurther updates will be provided once resolved.\"
-          }" \
-          ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
+      # - name: Notify failure to stakeholders
+      #   if: failure()
+      #   run: |
+      #     curl -H "Content-Type: application/json" \
+      #     -d "{
+      #     \"content\": \"🔴 CI PIPELINE STATUS\nResult: FAILED ❌\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe development team has been notified and is currently investigating the issue.\nFurther updates will be provided once resolved.\"
+      #     }" \
+      #     ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
 
   notify_dev_alerts:
     name: Notify Dev Alerts
