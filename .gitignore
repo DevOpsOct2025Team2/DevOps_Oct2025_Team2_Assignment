@@ -68,3 +68,5 @@ docker-compose.override.yml
 *.bak
 *.tmp
 *.temp
+# Snyk Security Extension - AI Rules (auto-generated)
+.github/instructions/snyk_rules.instructions.md

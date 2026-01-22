@@ -90,6 +90,16 @@ p {
   font-size: 1.05rem;
 }
 
+.icon {
+  width: 48px;
+  height: 48px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .info-stack {
   margin-top: 1.8rem;
   display: grid;
@@ -234,6 +244,75 @@ button.primary:hover {
   transform: translateY(-1px);
 }
 
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(24, 52, 52, 0.4);
+  cursor: pointer;
+}
+
+.modal-content {
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 400px;
+  box-shadow: var(--shadow);
+  animation: modal-appear 0.3s ease-out;
+}
+
+.logout-modal-content {
+  text-align: center;
+}
+
+.logout-modal-content .logout-icon {
+  margin-bottom: 1.2rem;
+  color: var(--teal);
+}
+
+.logout-modal-content h2 {
+  color: var(--ink);
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.logout-modal-content p {
+  color: var(--ink);
+  font-size: 1rem;
+  margin: 0.4rem 0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+}
+
+.modal-actions form { 
+  flex: 1; 
+}
+
+.modal-actions .btn, .modal-actions button { 
+  width: 100%; 
+}
+
+@media (max-width: 480px) {
+  .modal-actions { flex-direction: column; }
+}
+
 @keyframes float-in {
   from {
     opacity: 0;
@@ -267,6 +346,17 @@ button.primary:hover {
   }
 }
 
+@keyframes modal-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 900px) {
   .login-grid {
     grid-template-columns: 1fr;
@@ -285,5 +375,24 @@ button.primary:hover {
   .form-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .modal-content {
+    margin: 1.25rem;
+    max-width: calc(100% - 2.5rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .btn {
+    width: 100%;
+  }
+
+  .modal-content {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
   }
 }

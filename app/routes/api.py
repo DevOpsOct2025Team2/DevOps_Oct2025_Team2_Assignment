@@ -1,4 +1,4 @@
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify, request, g, session
 
 from app.routes import api_bp
 from app.security import login_required
@@ -51,20 +51,41 @@ def login():
     return response
 
 
-@api_bp.route("/auth/logout", methods=["POST"])
-def logout():
-    response = jsonify({"message": "Logged out."})
-    response.set_cookie(
-        current_app.config.get("AUTH_COOKIE_NAME", "access_token"),
-        "",
-        expires=0,
-        httponly=True,
-        secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
-        samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
-        path="/",
-    )
-    return response
-
+@api_bp.route("/auth/logout", methods=["GET", "POST"])
+@login_required
+def logout():    
+    try:
+        session.clear()
+        
+        response = jsonify({
+            "success": True,
+            "message": "You have been logged out successfully."
+        })
+        
+        # clear all auth cookies
+        auth_cookie_name = current_app.config.get("AUTH_COOKIE_NAME", "access_token")
+        cookies_to_clear = [auth_cookie_name, "refresh_token", "session"]
+        
+        for cookie_name in cookies_to_clear:
+            response.set_cookie(
+                cookie_name,
+                "",
+                expires=0,
+                httponly=True,
+                secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
+                samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
+                path="/",
+            )
+        
+        current_app.logger.info(f'User {g.current_user.get("username", "unknown")} logged out successfully')
+        return response
+    except Exception as e:
+        current_app.logger.error(f"Logout error: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": "An error occurred during logout. Please try again.",
+            "error": str(e) if current_app.debug else "Internal server error"
+        }), 500
 
 @api_bp.route("/auth/me", methods=["GET"])
 @login_required
