@@ -54,9 +54,15 @@ def login():
 @api_bp.route("/auth/logout", methods=["GET", "POST"])
 @login_required
 def logout():    
+    user = g.get("current_user")
+    if isinstance(user, dict):
+        username = user.get("username", "unknown")
+    else:
+        username = getattr(user, "username", "unknown") if user else "unknown"
+
     try:
         session.clear()
-        
+
         response = jsonify({
             "success": True,
             "message": "You have been logged out successfully."
@@ -76,8 +82,8 @@ def logout():
                 samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
                 path="/",
             )
-        
-        current_app.logger.info(f'User {g.current_user.get("username", "unknown")} logged out successfully')
+            
+        current_app.logger.info(f'User {username} logged out successfully')
         return response
     except Exception as e:
         current_app.logger.error(f"Logout error: {str(e)}")

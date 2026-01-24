@@ -1,10 +1,13 @@
 
 from app.services import auth_service
+import os
 
 def test_logout_success_clears_cookie_and_session(client, monkeypatch):
     def fake_authenticate_user(username, password, supabase_client=None):
-        if username == "alice" and password == "secret":
-            return {"id": "user-1", "username": "alice", "role": "admin"}
+        test_username = os.environ.get("TEST_USERNAME", "alice")
+        test_password = os.environ.get("TEST_PASSWORD", "secret")
+        if username == test_username and password == test_password:
+            return {"id": "user-1", "username": test_username, "role": "admin"}
         return None
 
     monkeypatch.setattr(auth_service, "authenticate_user", fake_authenticate_user)
