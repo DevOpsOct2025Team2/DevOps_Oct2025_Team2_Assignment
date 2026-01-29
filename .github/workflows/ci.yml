@@ -62,15 +62,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL (SAST)
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@main
         with:
           languages: python
 
       - name: Run CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@main
 
       - name: Run OWASP Dependency-Check (SCA)
-        uses: dependency-check/Dependency-Check_Action@v3
+        uses: dependency-check/Dependency-Check_Action@main
         with:
           project: DevOps-Assignment
           path: .
