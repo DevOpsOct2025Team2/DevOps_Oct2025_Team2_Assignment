@@ -53,38 +53,40 @@ jobs:
         run: |
           pytest --cov=app --cov-report=xml
 
-  security_scans:
-    name: Security Scans (SAST / SCA)
-    runs-on: ubuntu-latest
-    needs: [test]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # security_scans:
+  #   name: Security Scans (SAST / SCA)
+  #   runs-on: ubuntu-latest
+  #   needs: [test]
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Initialize CodeQL (SAST)
-        uses: github/codeql-action/init@main
-        with:
-          languages: python
+  #     - name: Initialize CodeQL (SAST)
+  #       uses: github/codeql-action/init@main
+  #       with:
+  #         languages: python
 
-      - name: Run CodeQL analysis
-        uses: github/codeql-action/analyze@main
+  #     - name: Run CodeQL analysis
+  #       uses: github/codeql-action/analyze@main
 
-      - name: Run OWASP Dependency-Check (SCA)
-        uses: dependency-check/Dependency-Check_Action@main
-        with:
-          project: DevOps-Assignment
-          path: .
-          format: HTML
-          out: reports
+  #     - name: Run OWASP Dependency-Check (SCA)
+  #       uses: dependency-check/Dependency-Check_Action@main
+  #       with:
+  #         project: DevOps-Assignment
+  #         path: .
+  #         format: HTML
+  #         out: reports
 
+
+#Note to self, change needs to security check when QA pushes SCA/SAST to main then can activate this 
   notify_pipeline_status:
     name: Notify Stakeholders
     runs-on: ubuntu-latest
-    needs: [security_scans]
+    needs: [test]
     if:  github.ref_name == 'main'
     steps:
       - name: Notify success to stakeholders
-        if: needs.security_scans.result == 'success'
+        if: needs.test.result == 'success'
         run: |
           curl -H "Content-Type: application/json" \
           -d "{
@@ -93,7 +95,7 @@ jobs:
           ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
 
       - name: Notify failure to stakeholders
-        if: needs.security_scans.result == 'failure'
+        if: needs.test.result == 'failure'
         run: |
           curl -H "Content-Type: application/json" \
           -d "{
@@ -104,8 +106,8 @@ jobs:
   notify_dev_alerts:
     name: Notify Dev Alerts
     runs-on: ubuntu-latest
-    needs: [security_scans]
-    if: startsWith(github.ref_name, 'feature/') && needs.security_scans.result == 'failure'
+    needs: [test]
+    if: startsWith(github.ref_name, 'feature/') && needs.test.result == 'failure'
 
     steps:
       - name: Notify developers of test failure
@@ -119,8 +121,8 @@ jobs:
   notify_security_alerts:
     name: Notify Security Alerts
     runs-on: ubuntu-latest
-    needs: [security_scans]
-    if: needs.security_scans.result == 'failure'
+    needs: [test]
+    if: needs.test.result == 'failure'
     steps:
       - name: Notify security channel 
         run: |
