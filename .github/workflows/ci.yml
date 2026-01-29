@@ -35,16 +35,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint]
     steps:
-      - name: TC4 - Notify failure on security #Discord notif to security channel
-        run: exit 1
+      - name: Run unit tests
+        run: |
+          pytest
 
   notify_pipeline_status:
     name: Notify Stakeholders
     runs-on: ubuntu-latest
     needs: [test]
-    #keep (github.event_name == 'pull_request' && 
-    #github.event.pull_request.base.ref == 'main')
-    #only for now TDD CI testing, remove later
     if: |
         always() && (github.ref_name == 'main' ||
         (github.event_name == 'pull_request' && 
