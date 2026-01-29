@@ -1,0 +1,26 @@
+# Git files
+LICENSE*
+README*
+.git*
+
+# VSCode files
+.vscode/
+
+# Python files
+*/__pycache__/
+*.py[cod]
+*$py.class
+
+# Docker files
+Dockerfile
+compose.yml
+compose.*.yml
+
+# Environments
+.env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
