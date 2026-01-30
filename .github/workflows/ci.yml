@@ -13,7 +13,7 @@ env:
 
 jobs:
   lint:
-    name: Code Quality and Setup
+    name: Code Quality
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -131,3 +131,4 @@ jobs:
                 \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nStatic and dependency security scans have detected potential vulnerabilities. Please review the scan results.\"
                 }" \
                 ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
+          pip install -r requirements.txt
