@@ -126,8 +126,8 @@ jobs:
     steps:
       - name: Notify security channel 
         run: |
-                curl -H "Content-Type: application/json" \
-                -d "{
-                \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nStatic and dependency security scans have detected potential vulnerabilities. Please review the scan results.\"
-                }" \
-                ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
+          curl -H "Content-Type: application/json" \
+          -d "{
+          \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nStatic and dependency security scans have detected potential vulnerabilities. Please review the scan results.\"
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
