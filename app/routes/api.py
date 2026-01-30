@@ -1,9 +1,8 @@
 from flask import current_app, jsonify, request, g, session
-
 from app.routes import api_bp
 from app.security import login_required
 from app.services import auth_service
-
+from app.audit.log import log_admin_action
 
 @api_bp.route("/auth/login", methods=["POST"])
 def login():
@@ -99,3 +98,60 @@ def me():
     from flask import g
 
     return jsonify({"user": g.current_user})
+
+
+@api_bp.route('/users', methods=['POST'])
+@login_required
+def create_user():
+    user = g.get("current_user")
+    if isinstance(user, dict):
+        user_role = user.get("role")
+        username_actor = user.get("username", "unknown")
+    else:
+        user_role = getattr(user, "role", None)
+        username_actor = getattr(user, "username", "unknown")
+
+    if user_role != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+    email = data.get('username', '').strip()  # Using email as username
+    password = data.get('password', '')
+    role = data.get('role', 'user')
+
+    # validate email
+    if not (3 <= len(email) <= 32):
+        return jsonify({'error': 'Email must be 3-32 characters.'}), 400
+    # validate role
+    if not (role in ['user', 'admin']):
+        return jsonify({'error': 'Invalid role.'}), 400
+    # validate password
+    if not password or len(password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
+    if not any(c.isdigit() for c in password) or not any(c.isalpha() for c in password):
+        return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
+    try:
+        supabase = auth_service()
+        
+        # Create user via Supabase Admin API
+        response = supabase.auth.admin.create_user({
+            "email": email,
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": {
+                "role": role
+            }
+        })
+        
+        # audit log
+        log_admin_action(username_actor, f"Created user {email} with role {role}")
+        
+        return jsonify({'message': 'User created successfully.'}), 201
+        
+    except Exception as e:
+        error_message = str(e)
+        if 'already registered' in error_message.lower():
+            return jsonify({'error': 'Username already exists.'}), 409
+        
+        current_app.logger.error(f"User creation error: {error_message}")
+        return jsonify({'error': 'Failed to create user.'}), 500

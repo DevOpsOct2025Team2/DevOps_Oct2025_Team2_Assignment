@@ -14,6 +14,9 @@
       </p>
       <div class="actions">
         <a class="ghost" href="#" onclick="showLogoutModal(event)">Log out</a>
+        {% if user.role == 'admin' %}
+          <button class="btn btn-primary" onclick="showCreateUserModal()">+ Create New User</button>
+        {% endif %}
       </div>
     </section>
   </main>
@@ -40,7 +43,56 @@
       </div>
     </div>
   </div>
-{% endblock %}
-{% block scripts %}
+
+  {% if user.role == 'admin' %}
+  <div id="create-user-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeCreateUserModal()"></div>
+    <div class="modal-content">
+      <h2>Create New User</h2>
+      <form id="create-user-form">
+        <div class="form-group">
+          <label for="new-username">Username</label>
+          <input 
+            type="text" 
+            id="new-username" 
+            name="username" 
+            required 
+            minlength="3" 
+            maxlength="32">
+        </div>
+        <div class="form-group">
+          <label for="new-password">Password</label>
+          <input 
+            type="password" 
+            id="new-password" 
+            name="password" 
+            required 
+            minlength="8" 
+            pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$">
+          <small>Minimum 8 characters with letters and numbers.</small>
+        </div>
+        <div class="form-group">
+          <label for="new-role">Role</label>
+          <select id="new-role" name="role" required>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div id="create-user-error" class="error-message"></div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-success">Create User</button>
+          <button type="button" class="btn btn-secondary" onclick="closeCreateUserModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  {% endblock %}
+  
+  {% block scripts %}
   <script src="{{ url_for('static', filename='logout.js') }}"></script>
+  {% if user.role == 'admin' %}
+  <script src="{{ url_for('static', filename='create_user.js') }}"></script>
+  {% endif %}
 {% endblock %}
