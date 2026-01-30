@@ -115,13 +115,13 @@ def create_user():
         return jsonify({'error': 'Unauthorized'}), 403
 
     data = request.get_json()
-    email = data.get('username', '').strip()  # Using email as username
+    username = data.get('username', '').strip()
     password = data.get('password', '')
     role = data.get('role', 'user')
 
-    # validate email
-    if not (3 <= len(email) <= 32):
-        return jsonify({'error': 'Email must be 3-32 characters.'}), 400
+    # validate username
+    if not (3 <= len(username) <= 32):
+        return jsonify({'error': 'Username must be 3-32 characters.'}), 400
     # validate role
     if not (role in ['user', 'admin']):
         return jsonify({'error': 'Invalid role.'}), 400
@@ -130,28 +130,29 @@ def create_user():
         return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
     if not any(c.isdigit() for c in password) or not any(c.isalpha() for c in password):
         return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
+
     try:
-        supabase = auth_service()
-        
-        # Create user via Supabase Admin API
-        response = supabase.auth.admin.create_user({
-            "email": email,
-            "password": password,
-            "email_confirm": True,
-            "user_metadata": {
-                "role": role
-            }
-        })
-        
-        # audit log
-        log_admin_action(username_actor, f"Created user {email} with role {role}")
-        
-        return jsonify({'message': 'User created successfully.'}), 201
-        
-    except Exception as e:
-        error_message = str(e)
-        if 'already registered' in error_message.lower():
+        supabase = auth_service.get_supabase_client()
+        # check if username exists
+        existing = supabase.table("users").select("id").eq("username", username).single().execute()
+        if existing.data:
             return jsonify({'error': 'Username already exists.'}), 409
-        
-        current_app.logger.error(f"User creation error: {error_message}")
+
+        # Hash password
+        password_hash = auth_service.hash_password(password)
+
+        # insert user
+        result = supabase.table("users").insert({
+            "username": username,
+            "password_hash": password_hash,
+            "role": role,
+            "is_active": True
+        }).execute()
+
+        log_admin_action(username_actor, f"Created user {username} with role {role}")
+
+        return jsonify({'message': 'User created successfully.'}), 201
+
+    except Exception as e:
+        current_app.logger.error(f"User creation error: {str(e)}")
         return jsonify({'error': 'Failed to create user.'}), 500

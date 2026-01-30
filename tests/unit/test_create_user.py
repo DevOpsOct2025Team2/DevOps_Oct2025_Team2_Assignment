@@ -1,7 +1,7 @@
 import unittest
+import bcrypt
 from app import create_app, db
 from app.models import User
-from werkzeug.security import check_password_hash
 
 class TestCreateUser(unittest.TestCase):
   
@@ -15,7 +15,7 @@ class TestCreateUser(unittest.TestCase):
        # create admin user for test
        admin = User(
            username='admin',
-           password_hash='hashed_password',
+           password_hash=bcrypt.hashpw('adminpassword'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
            role='admin'
        )
        db.session.add(admin)
@@ -56,7 +56,8 @@ class TestCreateUser(unittest.TestCase):
       
        user = User.query.filter_by(username='secureuser').first()
        self.assertNotEqual(user.password_hash, 'SecurePass99')
-       self.assertTrue(check_password_hash(user.password_hash, 'SecurePass99'))
+       # use bcrypt to check password
+       self.assertTrue(bcrypt.checkpw('SecurePass99'.encode('utf-8'), user.password_hash.encode('utf-8')))
   
    def test_create_user_username_too_short(self):
        response = self.client.post('/api/users', json={

@@ -50,9 +50,9 @@ document.addEventListener('DOMContentLoaded', function () {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, role })
       });
-      const data = await response.json();
+      const data = await resp.json();
 
-      if (response.ok) {
+      if (resp.ok) {
         closeCreateUserModal();
         window.location.reload();
       } else {
