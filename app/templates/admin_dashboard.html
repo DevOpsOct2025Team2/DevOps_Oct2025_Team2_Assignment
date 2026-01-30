@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="/static/css/admin.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Admin Dashboard</h1>
+        <button id="logoutBtn">Logout</button>
+      </header>
+
+      <main>
+        <div id="error-message" class="error hidden"></div>
+
+        <section class="user-list-section">
+          <h2>Registered Users</h2>
+          <div class="controls">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Search by username..."
+            />
+
+            <select id="sortBy">
+              <option value="created_at">Created At</option>
+              <option value="username">Username</option>
+              <option value="role">Role</option>
+            </select>
+
+            <select id="sortOrder">
+              <option value="desc">Desc</option>
+              <option value="asc">Asc</option>
+            </select>
+
+            <button id="applyFilters">Apply</button>
+          </div>
+
+          <table id="users-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Created At</th>
+                <th>Last Sign In</th>
+              </tr>
+            </thead>
+            <tbody id="users-body">
+              <!-- User rows will be inserted here -->
+            </tbody>
+          </table>
+
+          <div class="pagination">
+            <button id="prevBtn" disabled>Previous</button>
+            <span id="pageInfo">Page 1</span>
+            <button id="nextBtn">Next</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/js/admin.js"></script>
+  </body>
+</html>

@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% set title = "Sign in" %}
+{% set page = "login" %}
+{% block content %}
+  <main class="page-shell">
+    <div class="login-grid">
+      <section class="login-copy">
+        <span class="eyebrow">Secure Access</span>
+        <h1>Sign in to your role-ready dashboard.</h1>
+        <p class="lead">
+          Your account role determines where you land next. Keep your credentials close and
+          we will route you to the right workspace.
+        </p>
+        <div class="info-stack">
+          <div class="info-card">
+            <span class="info-title">Admin</span>
+            <p>Manage operations, configuration, and system oversight.</p>
+          </div>
+          <div class="info-card">
+            <span class="info-title">Regular</span>
+            <p>Track day-to-day activity and keep projects moving.</p>
+          </div>
+        </div>
+      </section>
+      <section class="card login-card">
+        <form id="login-form" class="form">
+          <div class="form-header">
+            <span class="badge">Welcome back</span>
+            <h2>Account sign-in</h2>
+            <p class="muted">Use your username and password.</p>
+          </div>
+          <label class="field">
+            <span>Username</span>
+            <input type="text" name="username" autocomplete="username" required />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <div class="form-row">
+            <button type="submit" class="primary">Sign in</button>
+            <span id="status" class="status" role="status" aria-live="polite"></span>
+          </div>
+          <p id="error" class="error" role="alert"></p>
+        </form>
+        <input type="hidden" id="nextPath" value="{{ next_path or '' }}" />
+      </section>
+    </div>
+  </main>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='login.js') }}"></script>
+{% endblock %}

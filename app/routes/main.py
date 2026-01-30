@@ -19,3 +19,11 @@ def info():
         'framework': 'Flask',
         'language': 'Python'
     })
+
+@main_bp.route('/admin')
+def admin_dashboard():
+    return render_template('admin_dashboard.html')
+
+@main_bp.route('/login')
+def login():
+    return render_template('login.html')
