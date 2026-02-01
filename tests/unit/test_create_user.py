@@ -59,7 +59,7 @@ def test_create_user_invalid_role(client):
     assert 'Invalid role' in response.get_json()['error']
 
 def test_create_user_non_admin_forbidden(client):
-    # Simulate regular user login
+    # simulation of regular user login
     with client.session_transaction() as sess:
         sess['user_id'] = 'regular_user_id'
     
