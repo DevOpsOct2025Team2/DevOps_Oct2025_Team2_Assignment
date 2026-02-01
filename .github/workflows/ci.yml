@@ -34,6 +34,105 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
         run: |
-          pytest -q --disable-warnings --maxfail=1
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Run unit tests
+        run: |
+          pytest --cov=app --cov-report=xml
+
+  # security_scans:
+  #   name: Security Scans (SAST / SCA)
+  #   runs-on: ubuntu-latest
+  #   needs: [test]
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Initialize CodeQL (SAST)
+  #       uses: github/codeql-action/init@main
+  #       with:
+  #         languages: python
+
+  #     - name: Run CodeQL analysis
+  #       uses: github/codeql-action/analyze@main
+
+  #     - name: Run OWASP Dependency-Check (SCA)
+  #       uses: dependency-check/Dependency-Check_Action@main
+  #       with:
+  #         project: DevOps-Assignment
+  #         path: .
+  #         format: HTML
+  #         out: reports
+
+
+#Note to self, change needs to security check when QA pushes SCA/SAST to main then can activate this 
+  notify_pipeline_status:
+    name: Notify Stakeholders
+    runs-on: ubuntu-latest
+    needs: [test]
+    if:  github.ref_name == 'main'
+    steps:
+      - name: Notify success to stakeholders
+        if: needs.test.result == 'success'
+        run: |
+          curl -H "Content-Type: application/json" \
+          -d "{
+          \"content\": \"🟢 CI PIPELINE STATUS\nResult: PASSED ✅\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe system is healthy and ready for use.\"
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
+
+      - name: Notify failure to stakeholders
+        if: needs.test.result == 'failure'
+        run: |
+          curl -H "Content-Type: application/json" \
+          -d "{
+          \"content\": \"🔴 CI PIPELINE STATUS\nResult: FAILED ❌\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe development team has been notified and is currently investigating the issue.\nFurther updates will be provided once resolved.\"
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
+
+  notify_dev_alerts:
+    name: Notify Dev Alerts
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: startsWith(github.ref_name, 'feature/') && needs.test.result == 'failure'
+
+    steps:
+      - name: Notify developers of test failure
+        run: |
+          curl -H "Content-Type: application/json" \
+          -d "{
+          \"content\": \"🔴 CI FAILED: UNIT TESTS\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nTriggered by: ${GITHUB_ACTOR}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nPlease investigate and fix the failing tests.\"
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK_DEV }}
+
+  notify_security_alerts:
+    name: Notify Security Alerts
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: needs.test.result == 'failure'
+    steps:
+      - name: Notify security channel 
+        run: |
+                curl -H "Content-Type: application/json" \
+                -d "{
+                \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nStatic and dependency security scans have detected potential vulnerabilities. Please review the scan results.\"
+                }" \
+                ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
+          pip install -r requirements.txt
