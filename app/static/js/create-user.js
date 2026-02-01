@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function () {
     e.preventDefault();
     const username = form.username.value.trim();
     const password = form.password.value;
-    const role = form.role.value;
+    let role = form.role.value.trim().toLowerCase();
     const error = document.getElementById('create-user-error');
 
     setSafeErrorText(error, '');
@@ -107,25 +107,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // validate role
-    if (role !== 'user' && role !== 'admin') {
+    if (role !== 'regular' && role !== 'admin') {
       setSafeErrorText(error, 'Invalid role selected.');
       createUserRateLimit.recordAttempt();
       return;
     }
 
-    // backend receives with auth token
+    // backend receives with auth token via httponly cookie
     try {
-      const token = sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
-      if (!token) {
-        setSafeErrorText(error, 'Authentication required. Please log in again.');
-        return;
-      }
-
       const resp = await fetch('/api/v1/users', {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include',
         body: JSON.stringify({ username, password, role })

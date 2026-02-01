@@ -125,7 +125,7 @@ def create_user():
 
     username = data.get('username', '').strip()
     password = data.get('password', '')
-    role = data.get('role', 'user')
+    role = data.get('role', 'regular').strip().lower()
 
     # validate username
     if not (3 <= len(username) <= 32):
@@ -134,8 +134,8 @@ def create_user():
         return jsonify({'error': 'Username can only contain letters, numbers, and underscores.'}), 400
 
     # validate role
-    if role not in ['user', 'admin']:
-        return jsonify({'error': 'Invalid role.'}), 400
+    if role not in ['regular', 'admin']:
+        return jsonify({'error': 'Invalid role. Must be "regular" or "admin".'}), 400
     
     # validate password
     if not password or len(password) < 8:
@@ -146,24 +146,46 @@ def create_user():
 
     try:
         supabase = auth_service.get_supabase_client()
-        # check if username already exists
-        try:
-            existing = supabase.table("users").select("id").eq("username", username).single().execute()
-            if existing.data:
-                return jsonify({'error': 'Username already exists.'}), 409
-        except Exception as check_err:
-            if "No rows found" not in str(check_err):
-                raise
+        if not supabase:
+            current_app.logger.error("Supabase client is None")
+            return jsonify({'error': 'Database service unavailable.'}), 500
+        
         # hash password
-        password_hash = auth_service.hash_password(password)
+        try:
+            password_hash = auth_service.hash_password(password)
+        except Exception as hash_err:
+            current_app.logger.error(f"Password hashing error: {str(hash_err)}")
+            return jsonify({'error': 'Failed to process password.'}), 500
 
         # insert user
-        result = supabase.table("users").insert({
-            "username": username,
-            "password_hash": password_hash,
-            "role": role,
-            "is_active": True
-        }).execute()
+        try:
+            current_app.logger.debug(f"Attempting to insert user: {username} with role: {role}")
+            
+            insert_data = {
+                "username": username,
+                "password_hash": password_hash,
+                "role": role,
+                "is_active": True
+            }
+            current_app.logger.debug(f"Insert data: {insert_data}")
+            
+            result = supabase.table("users").insert(insert_data).execute()
+            
+            current_app.logger.info(f"User {username} inserted successfully with role {role}")
+            
+        except Exception as insert_err:
+            error_str = str(insert_err)
+            current_app.logger.error(f"User insert error: {error_str}", exc_info=True)
+            
+            # Check for common errors
+            if "check constraint" in error_str.lower() or "role" in error_str.lower():
+                return jsonify({'error': 'Invalid role value. Allowed: "regular" or "admin".'}), 400
+            elif "duplicate" in error_str.lower() or "unique" in error_str.lower():
+                return jsonify({'error': 'Username already exists.'}), 409
+            elif "not null" in error_str.lower() or "required" in error_str.lower():
+                return jsonify({'error': 'Missing required fields.'}), 400
+            else:
+                return jsonify({'error': 'Failed to create user in database.'}), 500
 
         log_admin_action(username_actor, f"Created user {username} with role {role}")
         audit_logger.info(f"Admin {username_actor} created user {username} with role {role}")
@@ -171,8 +193,8 @@ def create_user():
         return jsonify({'message': 'User created successfully.'}), 201
 
     except Exception as e:
-        current_app.logger.error(f"User creation error: {str(e)}")
-        return jsonify({'error': 'Failed to create user.'}), 500
+        current_app.logger.error(f"User creation error: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to create user. Server error.'}), 500
 
 
 @api_bp.route('/admin/users', methods=['GET'])

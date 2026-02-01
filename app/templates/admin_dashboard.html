@@ -4,28 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
   </head>
   <body>
     <div class="container">
       <header>
         <h1>Admin Dashboard</h1>
-        <button id="createUserBtn" class="btn-primary">Create User</button>
-        <button id="logoutBtn">Logout</button>
+        <div class="header-actions">
+          <button id="createUserBtn" class="btn btn-create">Create User</button>
+          <button id="logoutBtn" class="btn btn-logout">Logout</button>
+        </div>
       </header>
 
       <main>
         <div id="error-message" class="error hidden"></div>
-
-        <section class="user-list-section">
-          <h2>Registered Users</h2>
-          <div class="controls">
-            <input
-              type="text"
-              id="searchInput"
-              placeholder="Search by username..."
-            />
 
         <!-- create user -->
         <div id="create-user-modal" class="modal hidden">
@@ -37,16 +30,16 @@
               <input type="password" id="password" name="password" placeholder="Password" required />
               <select id="role" name="role" required>
                 <option value="">Select Role</option>
-                <option value="user">User</option>
+                <option value="regular">Regular</option>
                 <option value="admin">Admin</option>
               </select>
               <div id="create-user-error" class="error"></div>
-              <button type="submit">Create User</button>
+              <button type="submit" class="btn btn-create">Create User</button>
             </form>
           </div>
         </div>
 
-        <!-- user list -->
+        <!-- user list section -->
         <section class="user-list-section">
           <h2>Registered Users</h2>
           <div class="controls">
@@ -60,22 +53,20 @@
               <option value="desc">Desc</option>
               <option value="asc">Asc</option>
             </select>
-            <button id="applyFilters">Apply</button>
+            <button id="applyFilters" class="btn btn-apply">Apply</button>
           </div>
 
           <table id="users-table">
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Email</th>
+                <th>Username</th>
                 <th>Role</th>
                 <th>Created At</th>
-                <th>Last Sign In</th>
+                <th>Status</th>
               </tr>
             </thead>
-            <tbody id="users-body">
-              <!-- User rows will be inserted here -->
-            </tbody>
+            <tbody id="users-body"></tbody>
           </table>
 
           <div class="pagination">

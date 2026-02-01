@@ -2,9 +2,9 @@
 from flask import g, redirect, render_template, request, jsonify
 from app.routes import main_bp
 from app.security import login_required, role_required
-# role constants
+
 ADMIN_ROLE = "admin"
-USER_ROLE = "user"
+REGULAR_ROLE = "regular"
 
 @main_bp.route('/')
 def index():
@@ -21,23 +21,24 @@ def info():
         'framework': 'Flask',
         'language': 'Python'
     })
+
 @main_bp.route('/login')
 def login():
     next_path = request.args.get("next", "")
-    # validate that the next path is relative URL to prevent open redirect
+    # validate that the next path is a relative URL to prevent open redirect
     if next_path and not next_path.startswith('/'):
         next_path = ""
     return render_template("login.html", next_path=next_path)
 
 @main_bp.route('/dashboard')
 @login_required
-@role_required({USER_ROLE})
+@role_required(REGULAR_ROLE)
 def dashboard():
     return render_template("dashboard.html", user=g.current_user)
 
 @main_bp.route('/admin')
 @login_required
-@role_required({ADMIN_ROLE})
+@role_required(ADMIN_ROLE)
 def admin():
     return render_template("admin_dashboard.html", user=g.current_user)
 

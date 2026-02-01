@@ -15,9 +15,6 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   setError("");
   setStatus("Signing you in...");
-  
-  // Clear any existing token
-  localStorage.removeItem("access_token");
 
   const formData = new FormData(form);
   const payload = {
@@ -36,11 +33,6 @@ form.addEventListener("submit", async (event) => {
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.message || "Login failed.");
-    }
-
-    // Store the token
-    if (data.access_token) {
-      localStorage.setItem("access_token", data.access_token);
     }
 
     const redirectTo =
