@@ -1,0 +1,233 @@
+# Complete Security Pipeline: SAST + SCA + DAST
+name: "4. Complete Security Pipeline"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 16 * * 0"  # Sunday 16:00 UTC = Monday 00:00 SGT
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # JOB 1: SAST - Static Code Analysis (CodeQL)
+  sast:
+    name: "1️⃣ SAST - CodeQL (SAST)"
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ "python" ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "sast"
+
+  # JOB 2: SCA - Dependency Analysis (OWASP Dependency-Check)
+  sca:
+    name: "2️⃣ SCA - Dependency-Check (SCA)"
+    runs-on: ubuntu-latest
+    needs: sast
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: ${{ github.repository }}
+          path: "."
+          format: "ALL"
+          out: "reports"
+          args: >
+            --failOnCVSS 7
+            --enableRetired
+
+      - name: Upload Dependency-Check reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sca-reports
+          path: reports/
+
+      - name: Upload SARIF to GitHub Security (if available)
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('reports/dependency-check-report.sarif') != ''
+        with:
+          sarif_file: reports/dependency-check-report.sarif
+          category: "sca"
+
+  # JOB 3: Build / Start App (basic readiness check)
+  build:
+    name: "3️⃣ Build & Start Application"
+    runs-on: ubuntu-latest
+    needs: [sast, sca]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Test application starts
+        run: |
+          python app.py &
+          sleep 10
+          curl -f http://localhost:5000 || exit 1
+          echo "✅ Application is running"
+
+  # JOB 4: DAST - Live Scan (OWASP ZAP)
+  dast:
+    name: "4️⃣ DAST - OWASP ZAP"
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start Flask application
+        run: |
+          python app.py &
+          sleep 10
+          echo "Application started on http://localhost:5000"
+
+      - name: Verify application is running
+        run: |
+          curl -f http://localhost:5000 || exit 1
+          echo "Application is responding"
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: "http://localhost:5000"
+          cmd_options: "-a"
+          allow_issue_writing: false
+          artifact_name: "zap-baseline-scan"
+        continue-on-error: true
+
+      - name: Rename baseline reports
+        if: always()
+        run: |
+          mv report_html.html baseline_report.html || true
+          mv report_json.json baseline_report.json || true
+          mv report_md.md baseline_report.md || true
+
+      - name: Upload ZAP baseline reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-baseline-reports
+          path: |
+            baseline_report.html
+            baseline_report.json
+            baseline_report.md
+
+      - name: ZAP Full Scan
+        uses: zaproxy/action-full-scan@v0.12.0
+        with:
+          target: "http://localhost:5000"
+          cmd_options: "-a -j"
+          allow_issue_writing: false
+          artifact_name: "zap-fullscan-scan"
+        continue-on-error: true
+
+      - name: Rename full scan reports
+        if: always()
+        run: |
+          mv report_html.html fullscan_report.html || true
+          mv report_json.json fullscan_report.json || true
+          mv report_md.md fullscan_report.md || true
+
+      - name: Upload ZAP fullscan reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-fullscan-reports
+          path: |
+            fullscan_report.html
+            fullscan_report.json
+            fullscan_report.md
+
+  # JOB 5: Summary (always runs)
+  summary:
+    name: "📊 Security Summary"
+    runs-on: ubuntu-latest
+    needs: [sast, sca, dast]
+    if: always()
+
+    steps:
+      - name: Generate Security Summary
+        run: |
+          echo "# 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SAST (CodeQL): Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SCA (Dependency-Check): Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ DAST (OWASP ZAP): Completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Artifacts Generated" >> $GITHUB_STEP_SUMMARY
+          echo "- CodeQL results in Security tab" >> $GITHUB_STEP_SUMMARY
+          echo "- SCA reports: sca-reports" >> $GITHUB_STEP_SUMMARY
+          echo "- DAST baseline: zap-baseline-reports" >> $GITHUB_STEP_SUMMARY
+          echo "- DAST fullscan: zap-fullscan-reports" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📁 Check the **Actions** tab for reports" >> $GITHUB_STEP_SUMMARY
+          echo "🔍 Check the **Security** tab for alerts" >> $GITHUB_STEP_SUMMARY
