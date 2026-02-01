@@ -89,7 +89,7 @@ def logout():
         return jsonify({
             "success": False,
             "message": "An error occurred during logout. Please try again.",
-            "error": str(e) if current_app.debug else "Internal server error"
+            "error": "Internal server error"
         }), 500
 
 @api_bp.route("/auth/me", methods=["GET"])
