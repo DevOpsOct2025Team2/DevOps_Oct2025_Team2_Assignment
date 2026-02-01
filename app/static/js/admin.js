@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentPage = page;
     } catch (error) {
       console.error("Error:", error);
-      usersBody.innerHTML = `<tr><td colspan="5" class="error">Error loading users: ${error.message}</td></tr>`;
+      usersBody.innerHTML = `<tr><td colspan="5" class="error">Error loading users: ${escapeHtml(error.message)}</td></tr>`;
     }
   }
 
@@ -97,13 +97,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     users.forEach((user) => {
       const row = document.createElement("tr");
-      row.innerHTML = `
-                <td>${user.id}</td>
-                <td>${user.username || user.email || "N/A"}</td>
-                <td>${user.role || "N/A"}</td>
-                <td>${new Date(user.created_at).toLocaleString()}</td>
-                <td>${user.is_active ? "Active" : "Inactive"}</td>
-            `;
+      const cells = [
+        escapeHtml(String(user.id || '')),
+        escapeHtml(user.username || user.email || 'N/A'),
+        escapeHtml(user.role || 'N/A'),
+        escapeHtml(new Date(user.created_at).toLocaleString()),
+        user.is_active ? 'Active' : 'Inactive'
+      ];
+      row.innerHTML = cells.map(cell => `<td>${cell}</td>`).join('');
       usersBody.appendChild(row);
     });
   }

@@ -30,10 +30,8 @@ class StubTable:
 
     def execute(self):
         if self._data and self._data.get("username") == self._value:
-             # auth_service expects a list of users
-            return StubResponse([self._data])
-        return StubResponse([])
-
+            return StubResponse(self._data)
+        return StubResponse(None)
 
 class StubClient:
     def __init__(self, data):

@@ -16,3 +16,7 @@ pytest-cov>=4.1.0
 
 # Code Quality (optional, for CI)
 ruff>=0.3.0
+
+# selenium 
+selenium==4.40.0
+webdriver-manager==4.0.2

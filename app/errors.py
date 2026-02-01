@@ -1,10 +1,18 @@
 from flask import jsonify
+from werkzeug.exceptions import HTTPException
 
 def register_error_handlers(app):
-    @app.errorhandler(404)
-    def not_found(error):
-        return jsonify({'message': 'Resource not found', 'status': 404}), 404
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(error):
+        return (
+            jsonify({"error": error.name, "message": error.description}),
+            error.code,
+        )
 
-    @app.errorhandler(500)
-    def internal_error(error):
-        return jsonify({'message': 'Internal server error', 'status': 500}), 500
+    @app.errorhandler(Exception)
+    def handle_exception(error):
+        app.logger.exception("Unhandled exception: %s", error)
+        return (
+            jsonify({"error": "Internal Server Error", "message": "Unexpected error."}),
+            500,
+        )

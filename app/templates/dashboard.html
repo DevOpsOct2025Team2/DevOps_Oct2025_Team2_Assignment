@@ -13,8 +13,86 @@
         This space is reserved for your day-to-day workflows and updates.
       </p>
       <div class="actions">
-        <a class="ghost" href="/logout">Log out</a>
+        <a class="ghost" href="#" onclick="showLogoutModal(event)">Log out</a>
+        {% if user.role == 'admin' %}
+          <button class="btn btn-primary" onclick="showCreateUserModal()">+ Create New User</button>
+        {% endif %}
       </div>
     </section>
   </main>
+
+  <!-- for logout confirmation -->
+  <div id="logout-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeLogoutModal()"></div>
+    <div class="modal-content logout-modal-content">
+      <div class="logout-icon">
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </div>
+      <h2>Logout Confirmation</h2>
+      <p>Are you sure you want to logout?</p>
+      <p class="modal-subtitle">Your session will be securely terminated.</p>
+      <div class="modal-actions">
+        <form id="logout-form">
+          <button type="submit" class="btn btn-danger">Yes, Logout</button>
+        </form>
+        <button type="button" class="btn btn-secondary" onclick="closeLogoutModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  {% if user.role == 'admin' %}
+  <div id="create-user-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeCreateUserModal()"></div>
+    <div class="modal-content">
+      <h2>Create New User</h2>
+      <form id="create-user-form">
+        <div class="form-group">
+          <label for="new-username">Username</label>
+          <input 
+            type="text" 
+            id="new-username" 
+            name="username" 
+            required 
+            minlength="3" 
+            maxlength="32">
+        </div>
+        <div class="form-group">
+          <label for="new-password">Password</label>
+          <input 
+            type="password" 
+            id="new-password" 
+            name="password" 
+            required 
+            minlength="8" 
+            pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$">
+          <small>Minimum 8 characters with letters and numbers.</small>
+        </div>
+        <div class="form-group">
+          <label for="new-role">Role</label>
+          <select id="new-role" name="role" required>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div id="create-user-error" class="error-message"></div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-success">Create User</button>
+          <button type="button" class="btn btn-secondary" onclick="closeCreateUserModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  {% endblock %}
+  
+  {% block scripts %}
+  <script src="{{ url_for('static', filename='logout.js') }}"></script>
+  {% if user.role == 'admin' %}
+  <script src="{{ url_for('static', filename='create_user.js') }}"></script>
+  {% endif %}
 {% endblock %}

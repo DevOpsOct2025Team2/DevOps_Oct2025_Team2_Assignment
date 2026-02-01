@@ -1,7 +1,10 @@
 """Main web routes"""
-from flask import render_template, jsonify
+from flask import g, redirect, render_template, request, jsonify
 from app.routes import main_bp
-
+from app.security import login_required, role_required
+# role constants
+ADMIN_ROLE = "admin"
+USER_ROLE = "user"
 
 @main_bp.route('/')
 def index():
@@ -11,7 +14,6 @@ def index():
         'status': 'running'
     })
 
-
 @main_bp.route('/info')
 def info():
     return jsonify({
@@ -19,11 +21,27 @@ def info():
         'framework': 'Flask',
         'language': 'Python'
     })
-
-@main_bp.route('/admin')
-def admin_dashboard():
-    return render_template('admin_dashboard.html')
-
 @main_bp.route('/login')
 def login():
-    return render_template('login.html')
+    next_path = request.args.get("next", "")
+    # validate that the next path is relative URL to prevent open redirect
+    if next_path and not next_path.startswith('/'):
+        next_path = ""
+    return render_template("login.html", next_path=next_path)
+
+@main_bp.route('/dashboard')
+@login_required
+@role_required({USER_ROLE})
+def dashboard():
+    return render_template("dashboard.html", user=g.current_user)
+
+@main_bp.route('/admin')
+@login_required
+@role_required({ADMIN_ROLE})
+def admin():
+    return render_template("admin_dashboard.html", user=g.current_user)
+
+@main_bp.route('/logout', methods=['GET', 'POST'])
+@login_required
+def logout():
+    return redirect('/login')

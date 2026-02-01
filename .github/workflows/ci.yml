@@ -15,6 +15,10 @@ jobs:
   lint:
     name: Code Quality
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,6 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+<<<<<<< HEAD
   test:
     name: Tests
     runs-on: ubuntu-latest
@@ -132,3 +137,8 @@ jobs:
                 }" \
                 ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
           pip install -r requirements.txt
+=======
+      - name: Run tests
+        run: |
+          pytest -q --disable-warnings --maxfail=1
+>>>>>>> feature/admin-create-user

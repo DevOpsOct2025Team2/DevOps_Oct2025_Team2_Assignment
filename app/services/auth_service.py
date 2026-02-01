@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta, timezone
+import logging
 
 import bcrypt
 import jwt
 
 from app.services.supabase_client import get_supabase_client
+logger = logging.getLogger(__name__)
 
 
 def hash_password(password):
@@ -17,15 +19,20 @@ def verify_password(password, password_hash):
 
 
 def get_user_by_username(username, supabase_client=None):
-    client = supabase_client or get_supabase_client()
-    response = (
-        client.table("users")
-        .select("id, username, password_hash, role, is_active")
-        .eq("username", username)
-        .execute()
-    )
-    if response.data and len(response.data) > 0:
-        return response.data[0]
+    try:
+        client = supabase_client or get_supabase_client()
+        response = (
+            client.table("users")
+            .select("id, username, password_hash, role, is_active")
+            .eq("username", username)
+            .single()
+            .execute()
+        )
+        if response.data:
+            return response.data
+    except Exception as e:
+        logger.debug(f"User lookup error for {username}: {str(e)}")
+        return None
     return None
 
 
@@ -58,4 +65,11 @@ def create_access_token(user, config):
 
 
 def decode_access_token(token, config):
-    return jwt.decode(token, config["JWT_SECRET_KEY"], algorithms=["HS256"])
+    try:
+        return jwt.decode(token, config["JWT_SECRET_KEY"], algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        logger.warning("Token expired")
+        raise
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid token: {str(e)}")
+        raise
