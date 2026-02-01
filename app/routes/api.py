@@ -117,14 +117,15 @@ def create_user():
     data = request.get_json()
     username = data.get('username', '').strip()
     password = data.get('password', '')
-    role = data.get('role', 'user')
+    role = data.get('role', 'regular').strip().lower()
 
     # validate username
     if not (3 <= len(username) <= 32):
         return jsonify({'error': 'Username must be 3-32 characters.'}), 400
     # validate role
-    if not (role in ['user', 'admin']):
-        return jsonify({'error': 'Invalid role.'}), 400
+    if role not in ['regular', 'admin']:
+        return jsonify({'error': 'Invalid role. Must be "regular" or "admin".'}), 400
+    
     # validate password
     if not password or len(password) < 8:
         return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
@@ -133,10 +134,13 @@ def create_user():
 
     try:
         supabase = auth_service.get_supabase_client()
-        # check if username exists
-        existing = supabase.table("users").select("id").eq("username", username).single().execute()
-        if existing.data:
-            return jsonify({'error': 'Username already exists.'}), 409
+        # check if username already exists 
+        try:
+            result = supabase.table("users").select("id").eq("username", username).execute()
+            if result.data and len(result.data) > 0:
+                return jsonify({'error': 'Username already exists.'}), 409
+        except Exception as check_err:
+            current_app.logger.debug(f"Username check error: {str(check_err)}")
 
         # Hash password
         password_hash = auth_service.hash_password(password)
@@ -155,4 +159,6 @@ def create_user():
 
     except Exception as e:
         current_app.logger.error(f"User creation error: {str(e)}")
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            return jsonify({'error': 'Username already exists.'}), 409
         return jsonify({'error': 'Failed to create user.'}), 500
