@@ -40,6 +40,9 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     needs: [lint]
+    env:
+        TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+        TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
