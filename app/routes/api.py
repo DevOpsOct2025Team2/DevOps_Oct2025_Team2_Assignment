@@ -1,9 +1,8 @@
 from flask import current_app, jsonify, request, g, session
-
 from app.routes import api_bp
 from app.security import login_required
 from app.services import auth_service
-
+from app.audit.log import log_admin_action
 
 @api_bp.route("/auth/login", methods=["POST"])
 def login():
@@ -90,7 +89,7 @@ def logout():
         return jsonify({
             "success": False,
             "message": "An error occurred during logout. Please try again.",
-            "error": str(e) if current_app.debug else "Internal server error"
+            "error": "Internal server error"
         }), 500
 
 @api_bp.route("/auth/me", methods=["GET"])
@@ -99,3 +98,67 @@ def me():
     from flask import g
 
     return jsonify({"user": g.current_user})
+
+
+@api_bp.route('/users', methods=['POST'])
+@login_required
+def create_user():
+    user = g.get("current_user")
+    if isinstance(user, dict):
+        user_role = user.get("role")
+        username_actor = user.get("username", "unknown")
+    else:
+        user_role = getattr(user, "role", None)
+        username_actor = getattr(user, "username", "unknown")
+
+    if user_role != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    role = data.get('role', 'regular').strip().lower()
+
+    # validate username
+    if not (3 <= len(username) <= 32):
+        return jsonify({'error': 'Username must be 3-32 characters.'}), 400
+    # validate role
+    if role not in ['regular', 'admin']:
+        return jsonify({'error': 'Invalid role. Must be "regular" or "admin".'}), 400
+    
+    # validate password
+    if not password or len(password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
+    if not any(c.isdigit() for c in password) or not any(c.isalpha() for c in password):
+        return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
+
+    try:
+        supabase = auth_service.get_supabase_client()
+        # check if username already exists 
+        try:
+            result = supabase.table("users").select("id").eq("username", username).execute()
+            if result.data and len(result.data) > 0:
+                return jsonify({'error': 'Username already exists.'}), 409
+        except Exception as check_err:
+            current_app.logger.debug(f"Username check error: {str(check_err)}")
+
+        # Hash password
+        password_hash = auth_service.hash_password(password)
+
+        # insert user
+        result = supabase.table("users").insert({
+            "username": username,
+            "password_hash": password_hash,
+            "role": role,
+            "is_active": True
+        }).execute()
+
+        log_admin_action(username_actor, f"Created user {username} with role {role}")
+
+        return jsonify({'message': 'User created successfully.'}), 201
+
+    except Exception as e:
+        current_app.logger.error(f"User creation error: {str(e)}")
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            return jsonify({'error': 'Username already exists.'}), 409
+        return jsonify({'error': 'Failed to create user.'}), 500
