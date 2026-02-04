@@ -31,7 +31,8 @@ def get_user_by_username(username, supabase_client=None):
         if response.data:
             return response.data
     except Exception:
-        logger.debug(f"User lookup error for {username}")
+        safe_username = (username or "").replace("\r", "").replace("\n", "")
+        logger.debug(f"User lookup error for {safe_username}")
         return None
     return None
 
