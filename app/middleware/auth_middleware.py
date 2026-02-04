@@ -82,7 +82,7 @@ def role_required(required_role):
                 return jsonify({'message': 'Invalid token'}), 401
             except Exception as e:
                 logger.error(f"Auth error: {e}")
-                return jsonify({'message': f'Authentication error: {str(e)}'}), 401
+                return jsonify({'message': 'Authentication error'}), 401
 
             return f(*args, **kwargs)
         return decorated_function
