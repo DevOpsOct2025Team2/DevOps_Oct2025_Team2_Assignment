@@ -206,7 +206,8 @@ def get_all_users():
         return jsonify({'error': 'Unauthorized'}), 403
 
     try:
-        audit_logger.info("Admin %s accessed user list from IP %s", username_actor, request.remote_addr)
+        remote_addr = (request.remote_addr or "").replace("\r", "").replace("\n", "")
+        audit_logger.info("Admin %s accessed user list from IP %s", username_actor, remote_addr)
 
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
