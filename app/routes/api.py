@@ -121,7 +121,8 @@ def create_user():
     username_actor, user_role = _get_current_user_info()
 
     if user_role != 'admin':
-    audit_logger.warning("Unauthorized user creation attempt by %s from IP %s", username_actor, request.remote_addr)
+        remote_addr = (request.remote_addr or "").replace("\r", "").replace("\n", "")
+        audit_logger.warning("Unauthorized user creation attempt by %s from IP %s", username_actor, remote_addr)
         return jsonify({'error': 'Unauthorized'}), 403
 
     data = request.get_json()
