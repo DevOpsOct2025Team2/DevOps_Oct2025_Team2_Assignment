@@ -79,11 +79,19 @@ def logout():
     try:
         session.clear()
 
-        response = jsonify({
+             # Log the internal error detail but return a generic message to the client
+             audit_logger.error(
+                 f"Failed to fetch users for admin '{admin_username}' from IP {request.remote_addr}: {result.get('error')}"
+             )
+             return jsonify({'message': 'An internal error occurred while fetching users'}), 500
             "success": True,
             "message": "You have been logged out successfully."
         })
-        
+        # Log unexpected exceptions and return a generic message
+        audit_logger.exception(
+            f"Unexpected error in get_all_users for admin '{admin_username}' from IP {request.remote_addr}"
+        )
+        return jsonify({'message': 'An internal server error occurred'}), 500
         auth_cookie_name = current_app.config.get("AUTH_COOKIE_NAME", "access_token")
         cookies_to_clear = [auth_cookie_name, "refresh_token", "session"]
         

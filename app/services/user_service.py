@@ -1,6 +1,9 @@
 import os
 from supabase import create_client, Client
 from flask import current_app
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserService:
     def __init__(self):
@@ -60,9 +63,9 @@ class UserService:
                 'total': response.count or 0
             }
         except Exception as e:
-            # Log error
-            print(f"Error fetching users: {e}")
-            return {'users': [], 'error': str(e)}
+            # Log full error with stack trace on the server, but do not expose details to the client
+            logger.exception("Error fetching users")
+            return {'users': [], 'error': 'Failed to fetch users'}
 
     def get_user_by_id(self, user_id):
         try:
