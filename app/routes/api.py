@@ -83,7 +83,8 @@ def logout():
              audit_logger.error(f"Failed to fetch users: {result.get('error')}")
              return jsonify({'message': 'Failed to fetch users'}), 500
              audit_logger.error(
-                 f"Failed to fetch users for admin '{admin_username}' from IP {request.remote_addr}: {result.get('error')}"
+        logging.exception("Unexpected error while fetching users")
+        return jsonify({'message': 'An internal server error occurred.'}), 500
              )
         # Log unexpected exception details server-side, but do not expose them to the client
         audit_logger.exception(f"Unexpected error in get_all_users: {e}")
