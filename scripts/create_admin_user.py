@@ -1,13 +1,14 @@
 import sys
 import os
 import argparse
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Add current directory to path
-sys.path.append(os.getcwd())
+# parent directory added to path to import from app
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
     from app.services.supabase_client import get_supabase_client
@@ -19,7 +20,7 @@ except ImportError as e:
 def create_admin_user(username, password):
     client = get_supabase_client()
     
-    # Check if user exists
+    # check if user exists
     try:
         existing = client.table("users").select("id").eq("username", username).execute()
         if existing.data and len(existing.data) > 0:
@@ -40,12 +41,10 @@ def create_admin_user(username, password):
     
     try:
         response = client.table("users").insert(data).execute()
-        # In newer supabase clients, response.data handles the result
         if response.data:
             print(f"Successfully created admin user: {username}")
         else:
-             # Fallback if data is empty but no exception raised
-             print(f"User creation executed. Please verify in database.")
+            print(f"User creation executed. Please verify in database.")
              
     except Exception as e:
         print(f"Error creating user: {e}")

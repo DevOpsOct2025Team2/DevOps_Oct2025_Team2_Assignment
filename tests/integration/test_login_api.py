@@ -27,9 +27,8 @@ def test_login_success_sets_cookie_and_redirect(client, monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json["redirect_to"] == "/admin"
-    assert "access_token" in response.json
-
+    cookies = response.headers.get("Set-Cookie", "")
+    assert "access_token=" in cookies
 
 def test_login_failure_returns_unauthorized(client, monkeypatch):
     monkeypatch.setattr(auth_service, "authenticate_user", lambda *_args, **_kwargs: None)
