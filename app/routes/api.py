@@ -11,6 +11,18 @@ audit_logger = logging.getLogger('audit')
 audit_logger.setLevel(logging.INFO)
 if not audit_logger.handlers:
     audit_handler = logging.FileHandler('audit.log')
+
+
+def _sanitize_for_log(value):
+    """
+    Remove characters that can break log structure (like newlines)
+    from user-controlled values before logging.
+    """
+    if value is None:
+        return ""
+    # Ensure we are working with a string and strip CR/LF characters
+    text = str(value)
+    return text.replace("\r", "").replace("\n", "")
     audit_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
     audit_logger.addHandler(audit_handler)
 
@@ -187,7 +199,9 @@ def create_user():
                 return jsonify({'error': 'Failed to create user in database.'}), 500
 
         log_admin_action(username_actor, f"Created user {username} with role {role}")
-        audit_logger.info("Admin %s created user %s with role %s", username_actor, username, role)
+        safe_username = _sanitize_for_log(username)
+        safe_role = _sanitize_for_log(role)
+        audit_logger.info("Admin %s created user %s with role %s", username_actor, safe_username, safe_role)
 
         return jsonify({'message': 'User created successfully.'}), 201
 
