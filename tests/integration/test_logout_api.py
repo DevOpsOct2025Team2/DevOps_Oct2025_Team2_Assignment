@@ -1,13 +1,20 @@
+from dotenv import load_dotenv
+load_dotenv()
 
-from app.services import auth_service
 import os
+from app.services import auth_service
+
+# set default env vars for testing
+TEST_USERNAME = os.environ.get("TEST_USERNAME")
+TEST_PASSWORD = os.environ.get("TEST_PASSWORD")
+
+if not TEST_USERNAME or not TEST_PASSWORD:
+    raise RuntimeError("TEST_USERNAME and TEST_PASSWORD must be set in .env")
 
 def test_logout_success_clears_cookie_and_session(client, monkeypatch):
     def fake_authenticate_user(username, password, supabase_client=None):
-        test_username = os.environ.get("TEST_USERNAME", "alice")
-        test_password = os.environ.get("TEST_PASSWORD", "secret")
-        if username == test_username and password == test_password:
-            return {"id": "user-1", "username": test_username, "role": "admin"}
+        if username == TEST_USERNAME and password == TEST_PASSWORD:
+            return {"id": "user-1", "username": TEST_USERNAME, "role": "admin"}
         return None
 
     monkeypatch.setattr(auth_service, "authenticate_user", fake_authenticate_user)
@@ -15,7 +22,7 @@ def test_logout_success_clears_cookie_and_session(client, monkeypatch):
     # obtain access token cookie
     login_response = client.post(
         "/api/v1/auth/login",
-        json={"username": "alice", "password": "secret"},
+        json={"username": TEST_USERNAME, "password": TEST_PASSWORD},
     )
     assert login_response.status_code == 200
     cookies = login_response.headers.get("Set-Cookie", "")

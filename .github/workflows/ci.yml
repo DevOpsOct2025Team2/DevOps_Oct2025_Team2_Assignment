@@ -1,5 +1,9 @@
 name: CI Pipeline
 
+permissions:
+  contents: read
+  security-events: write
+
 on:
   push:
     branches: [main, develop, 'feature/*']
@@ -11,6 +15,10 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+  JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
 jobs:
   lint:
     name: Code Quality
@@ -19,6 +27,8 @@ jobs:
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,11 +43,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest-cov
 
   test:
     name: Tests
     runs-on: ubuntu-latest
     needs: [lint]
+    env:
+        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+        TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -52,87 +69,96 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          
+          pip install pytest-cov
       - name: Run unit tests
         run: |
           pytest --cov=app --cov-report=xml
 
-  # security_scans:
-  #   name: Security Scans (SAST / SCA)
-  #   runs-on: ubuntu-latest
-  #   needs: [test]
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  security_scans:
+    name: Security Scans (SAST / SCA)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Initialize CodeQL (SAST)
-  #       uses: github/codeql-action/init@main
-  #       with:
-  #         languages: python
+      - name: Initialize CodeQL (SAST)
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-extended
 
-  #     - name: Run CodeQL analysis
-  #       uses: github/codeql-action/analyze@main
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v3
 
-  #     - name: Run OWASP Dependency-Check (SCA)
-  #       uses: dependency-check/Dependency-Check_Action@main
-  #       with:
-  #         project: DevOps-Assignment
-  #         path: .
-  #         format: HTML
-  #         out: reports
+      - name: Run OWASP Dependency-Check (SCA)
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: ${{ github.repository }}
+          path: .
+          format: ALL
+          out: reports
+          args: >
+            --failOnCVSS 7
+            --enableRetired 
 
-
-#Note to self, change needs to security check when QA pushes SCA/SAST to main then can activate this 
+  # NOTIFICATION: Pipeline Status (main branch only)
   notify_pipeline_status:
     name: Notify Stakeholders
     runs-on: ubuntu-latest
-    needs: [test]
-    if:  github.ref_name == 'main'
+    needs: [lint, test, security_scans]  
+    if: always() && github.ref_name == 'main'  # Always run on main, regardless of job outcomes
     steps:
-      - name: Notify success to stakeholders
-        if: needs.test.result == 'success'
-        run: |
-          curl -H "Content-Type: application/json" \
-          -d "{
-          \"content\": \"🟢 CI PIPELINE STATUS\nResult: PASSED ✅\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe system is healthy and ready for use.\"
-          }" \
-          ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
+      - uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
+          status: ${{ contains(needs.*.result, 'failure') && 'failure' || 'success' }}
+          title: CI Pipeline
+          description: |
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
 
-      - name: Notify failure to stakeholders
-        if: needs.test.result == 'failure'
-        run: |
-          curl -H "Content-Type: application/json" \
-          -d "{
-          \"content\": \"🔴 CI PIPELINE STATUS\nResult: FAILED ❌\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nThe development team has been notified and is currently investigating the issue.\nFurther updates will be provided once resolved.\"
-          }" \
-          ${{ secrets.DISCORD_WEBHOOK_PIPELINE }}
+            Lint: ${{ needs.lint.result }}
+            Tests: ${{ needs.test.result }}
+            Security Scans: ${{ needs.security_scans.result }}
+          color: ${{ contains(needs.*.result, 'failure') && '0xFF0000' || '0x00FF00' }}
+          username: CI Pipeline Bot
 
+  # NOTIFICATION: Dev Alerts (feature and main branches)
   notify_dev_alerts:
     name: Notify Dev Alerts
     runs-on: ubuntu-latest
     needs: [test]
-    if: startsWith(github.ref_name, 'feature/') && needs.test.result == 'failure'
-
+    if: always() && (startsWith(github.ref_name, 'feature/') || github.ref_name == 'main') && needs.test.result == 'failure'
     steps:
-      - name: Notify developers of test failure
-        run: |
-          curl -H "Content-Type: application/json" \
-          -d "{
-          \"content\": \"🔴 CI FAILED: UNIT TESTS\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nTriggered by: ${GITHUB_ACTOR}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nPlease investigate and fix the failing tests.\"
-          }" \
-          ${{ secrets.DISCORD_WEBHOOK_DEV }}
+      - uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_DEV }}
+          status: ${{ needs.test.result }}
+          title: Unit Tests Failed
+          description: |
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Triggered by: ${{ github.actor }}
+          color: 0xFFFF00 
+          username: Dev Alert Bot
 
+  # NOTIFICATION: Security Alerts (feature and main branches)
   notify_security_alerts:
     name: Notify Security Alerts
     runs-on: ubuntu-latest
-    needs: [test]
-    if: needs.test.result == 'failure'
+    needs: [security_scans] 
+    if: always() && (startsWith(github.ref_name, 'feature/') || github.ref_name == 'main') && needs.security_scans.result == 'failure'
     steps:
-      - name: Notify security channel 
-        run: |
-                curl -H "Content-Type: application/json" \
-                -d "{
-                \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nStatic and dependency security scans have detected potential vulnerabilities. Please review the scan results.\"
-                }" \
-                ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
-          pip install -r requirements.txt
+      - uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
+          status: ${{ needs.security_scans.result }}
+          title: Security Scan Alert
+          description: |
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Alert: CodeQL or Dependency-Check found vulnerabilities
+          color: 0xFF0000  
+          username: Security Alert Bot
