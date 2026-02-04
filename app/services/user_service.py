@@ -2,6 +2,7 @@ import os
 from supabase import create_client, Client
 from flask import current_app
 import logging
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +61,9 @@ class UserService:
                 'users': users,
                 'page': page,
                 'per_page': per_page,
-                'total': response.count or 0
-            }
-        except Exception as e:
+            # Log error with stack trace on the server, but do not expose details to the client
+            logging.exception("Error fetching users")
+            return {'users': [], 'error': 'Failed to fetch users'}
             # Log full error with stack trace on the server, but do not expose details to the client
             logger.exception("Error fetching users")
             return {'users': [], 'error': 'Failed to fetch users'}

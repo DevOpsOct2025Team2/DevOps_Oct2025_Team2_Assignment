@@ -79,11 +79,15 @@ def logout():
     try:
         session.clear()
 
-             # Log the internal error detail but return a generic message to the client
+             # Log detailed error server-side, but return a generic message to the client
+             audit_logger.error(f"Failed to fetch users: {result.get('error')}")
+             return jsonify({'message': 'Failed to fetch users'}), 500
              audit_logger.error(
                  f"Failed to fetch users for admin '{admin_username}' from IP {request.remote_addr}: {result.get('error')}"
              )
-             return jsonify({'message': 'An internal error occurred while fetching users'}), 500
+        # Log unexpected exception details server-side, but do not expose them to the client
+        audit_logger.exception(f"Unexpected error in get_all_users: {e}")
+        return jsonify({'message': 'An internal server error occurred'}), 500
             "success": True,
             "message": "You have been logged out successfully."
         })
