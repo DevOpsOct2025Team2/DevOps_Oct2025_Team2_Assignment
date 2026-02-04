@@ -32,9 +32,11 @@ def test_login_success_sets_cookie_and_redirect(client, monkeypatch):
 def test_login_failure_returns_unauthorized(client, monkeypatch):
     monkeypatch.setattr(auth_service, "authenticate_user", lambda *_args, **_kwargs: None)
 
+    wrong_password = f"{TEST_PASSWORD}_wrong"
+
     response = client.post(
         "/api/v1/auth/login",
-        json={"username": TEST_USERNAME, "password": "wrong"},
+        json={"username": TEST_USERNAME, "password": wrong_password},
     )
 
     assert response.status_code == 401

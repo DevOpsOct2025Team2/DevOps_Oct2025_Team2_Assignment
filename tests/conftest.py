@@ -12,7 +12,6 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT_DIR))
 
 from app import create_app
-
 def pytest_sessionstart(session):
     print("Starting test session...")
     

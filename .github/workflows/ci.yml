@@ -27,8 +27,6 @@ jobs:
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-      TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
-      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -151,6 +149,14 @@ jobs:
     needs: [security_scans] 
     if: always() && (startsWith(github.ref_name, 'feature/') || github.ref_name == 'main') && needs.security_scans.result == 'failure'
     steps:
+      - name: Notify security channel 
+        run: |
+                curl -H "Content-Type: application/json" \
+                -d "{
+                \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nStatic and dependency security scans have detected potential vulnerabilities. Please review the scan results.\"
+                }" \
+                ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
+          pip install -r requirements.txt
       - uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_SECURITY }}

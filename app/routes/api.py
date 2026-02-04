@@ -1,8 +1,40 @@
+import logging
 from flask import current_app, jsonify, request, g, session
 from app.routes import api_bp
 from app.security import login_required
 from app.services import auth_service
+from app.services.user_service import UserService
 from app.audit.log import log_admin_action
+
+# audit logging
+audit_logger = logging.getLogger('audit')
+audit_logger.setLevel(logging.INFO)
+if not audit_logger.handlers:
+    audit_handler = logging.FileHandler('audit.log')
+
+
+def _sanitize_for_log(value):
+    """
+    Remove characters that can break log structure (like newlines)
+    from user-controlled values before logging.
+    """
+    if value is None:
+        return ""
+    # Ensure we are working with a string and strip CR/LF characters
+    text = str(value)
+    return text.replace("\r", "").replace("\n", "")
+    audit_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+    audit_logger.addHandler(audit_handler)
+
+def _get_current_user_info():
+    user = g.get("current_user")
+    if isinstance(user, dict):
+        return user.get("username", "unknown"), user.get("role")
+    else:
+        username = getattr(user, "username", "unknown") if user else "unknown"
+        role = getattr(user, "role", None) if user else None
+        return username, role
+
 
 @api_bp.route("/auth/login", methods=["POST"])
 def login():
@@ -17,12 +49,10 @@ def login():
         user = auth_service.authenticate_user(username, password)
     except RuntimeError:
         return (
-            jsonify(
-                {
+            jsonify({
                     "error": "server_configuration",
                     "message": "Authentication service is not configured.",
-                }
-            ),
+                }),
             500,
         )
     if not user:
@@ -31,13 +61,12 @@ def login():
     token = auth_service.create_access_token(user, current_app.config)
     redirect_to = "/admin" if user.get("role") == "admin" else "/dashboard"
 
-    response = jsonify(
-        {
-            "message": "Login successful.",
-            "role": user.get("role"),
-            "redirect_to": redirect_to,
-        }
-    )
+    response = jsonify({
+        "message": "Login successful.",
+        "role": user.get("role"),
+        "redirect_to": redirect_to,
+    })
+    
     response.set_cookie(
         current_app.config.get("AUTH_COOKIE_NAME", "access_token"),
         token,
@@ -47,49 +76,46 @@ def login():
         max_age=current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES", 3600),
         path="/",
     )
+    # improved fix
+    # Sanitize values before logging to prevent log injection
+    safe_username = username.replace('\r', '').replace('\n', '')
+    safe_ip = (request.remote_addr or "unknown").replace('\r', '').replace('\n', '')
+    audit_logger.info("User %s logged in from IP %s", safe_username, safe_ip)
     return response
-
 
 @api_bp.route("/auth/logout", methods=["GET", "POST"])
 @login_required
 def logout():    
-    user = g.get("current_user")
-    if isinstance(user, dict):
-        username = user.get("username", "unknown")
-    else:
-        username = getattr(user, "username", "unknown") if user else "unknown"
-
+    username, _ = _get_current_user_info()
     try:
         session.clear()
 
-        response = jsonify({
+        return jsonify({
             "success": True,
             "message": "You have been logged out successfully."
         })
-        
-        # clear all auth cookies
         auth_cookie_name = current_app.config.get("AUTH_COOKIE_NAME", "access_token")
         cookies_to_clear = [auth_cookie_name, "refresh_token", "session"]
         
         for cookie_name in cookies_to_clear:
-            response.set_cookie(
-                cookie_name,
-                "",
-                expires=0,
-                httponly=True,
-                secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
-                samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
-                path="/",
-            )
+          response.set_cookie(
+              cookie_name,
+              "",
+              expires=0,
+              httponly=True,
+              secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
+              samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
+              path="/",
+          )
             
-        current_app.logger.info(f'User {username} logged out successfully')
-        return response
-    except Exception as e:
-        current_app.logger.error(f"Logout error: {str(e)}")
+        audit_logger.info("User %s logged out", username)
+        return response, 200
+      
+    except Exception:
+        audit_logger.exception("Unexpected logout error for %s", username)
         return jsonify({
             "success": False,
-            "message": "An error occurred during logout. Please try again.",
-            "error": "Internal server error"
+            "message": "An internal server error occured.",
         }), 500
 
 @api_bp.route("/auth/me", methods=["GET"])
@@ -100,21 +126,21 @@ def me():
     return jsonify({"user": g.current_user})
 
 
-@api_bp.route('/users', methods=['POST'])
+@api_bp.route('/auth/users', methods=['POST'])
 @login_required
 def create_user():
-    user = g.get("current_user")
-    if isinstance(user, dict):
-        user_role = user.get("role")
-        username_actor = user.get("username", "unknown")
-    else:
-        user_role = getattr(user, "role", None)
-        username_actor = getattr(user, "username", "unknown")
+    # improved fix
+    username_actor, user_role = _get_current_user_info()
 
     if user_role != 'admin':
+        remote_addr = (request.remote_addr or "").replace("\r", "").replace("\n", "")
+        audit_logger.warning("Unauthorized user creation attempt by %s from IP %s", username_actor, remote_addr)
         return jsonify({'error': 'Unauthorized'}), 403
 
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body required'}), 400
+
     username = data.get('username', '').strip()
     password = data.get('password', '')
     role = data.get('role', 'regular').strip().lower()
@@ -122,6 +148,9 @@ def create_user():
     # validate username
     if not (3 <= len(username) <= 32):
         return jsonify({'error': 'Username must be 3-32 characters.'}), 400
+    if not username.replace('_', '').isalnum():
+        return jsonify({'error': 'Username can only contain letters, numbers, and underscores.'}), 400
+
     # validate role
     if role not in ['regular', 'admin']:
         return jsonify({'error': 'Invalid role. Must be "regular" or "admin".'}), 400
@@ -129,36 +158,91 @@ def create_user():
     # validate password
     if not password or len(password) < 8:
         return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
+    
     if not any(c.isdigit() for c in password) or not any(c.isalpha() for c in password):
         return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
 
     try:
         supabase = auth_service.get_supabase_client()
-        # check if username already exists 
+        if not supabase:
+            current_app.logger.error("Supabase client is None")
+            return jsonify({'error': 'Database service unavailable.'}), 500
+        
+        # hash password
         try:
-            result = supabase.table("users").select("id").eq("username", username).execute()
-            if result.data and len(result.data) > 0:
-                return jsonify({'error': 'Username already exists.'}), 409
-        except Exception as check_err:
-            current_app.logger.debug(f"Username check error: {str(check_err)}")
-
-        # Hash password
-        password_hash = auth_service.hash_password(password)
+            password_hash = auth_service.hash_password(password)
+        except Exception:
+            current_app.logger.error("Password hashing error", exc_info=True)
+            return jsonify({'error': 'Failed to process password.'}), 500
 
         # insert user
-        result = supabase.table("users").insert({
-            "username": username,
-            "password_hash": password_hash,
-            "role": role,
-            "is_active": True
-        }).execute()
+        try:
+            current_app.logger.debug("Attempting to insert user: %s with role: %s", username, role)
+            
+            insert_data = {
+                "username": username,
+                "password_hash": password_hash,
+                "role": role,
+                "is_active": True
+            }            
+            result = supabase.table("users").insert(insert_data).execute()
+            
+        except Exception as insert_err:
+            error_str = str(insert_err).lower()
+            current_app.logger.error("User insert error:", exc_info=True)
+            # improved fix 
+            if "duplicate" in error_str or "unique" in error_str:
+                return jsonify({'error': 'Username already exists.'}), 409
+            elif "check constraint" in error_str or "role" in error_str:
+                return jsonify({'error': 'Invalid role value.'}), 400 
+            else:
+                return jsonify({'error': 'Failed to create user in database.'}), 500
 
         log_admin_action(username_actor, f"Created user {username} with role {role}")
+        safe_username = _sanitize_for_log(username)
+        safe_role = _sanitize_for_log(role)
+        audit_logger.info("Admin %s created user %s with role %s", username_actor, safe_username, safe_role)
 
         return jsonify({'message': 'User created successfully.'}), 201
 
-    except Exception as e:
-        current_app.logger.error(f"User creation error: {str(e)}")
-        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
-            return jsonify({'error': 'Username already exists.'}), 409
-        return jsonify({'error': 'Failed to create user.'}), 500
+    except Exception:
+        current_app.logger.error("User creation error", exc_info=True)
+        return jsonify({'error': 'Failed to create user. Server error.'}), 500
+
+
+@api_bp.route('/admin/users', methods=['GET'])
+@login_required
+def get_all_users():
+    # fetch all users with pagination, search, and sorting for admins
+    username_actor, user_role = _get_current_user_info()
+    
+    if user_role != 'admin':
+        audit_logger.warning("Unauthorized user list access attempt by %s", username_actor)
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        remote_addr = (request.remote_addr or "").replace("\r", "").replace("\n", "")
+        audit_logger.info("Admin %s accessed user list from IP %s", username_actor, remote_addr)
+
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        search = request.args.get('search', '')
+        sort_by = request.args.get('sort_by', 'created_at')
+        order = request.args.get('order', 'desc')
+        
+        user_service = UserService()
+        result = user_service.get_all_users(
+            page=page, 
+            per_page=per_page,
+            search_query=search,
+            sort_by=sort_by,
+            sort_order=order
+        )
+        
+        if 'error' in result:
+            return jsonify({'message': result['error']}), 500
+             
+        return jsonify(result), 200
+    except Exception:
+        current_app.logger.error("Error fetching users", exc_info=True)
+        return jsonify({'message': 'Failed to fetch users'}), 500

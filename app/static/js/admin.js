@@ -38,44 +38,25 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentPage = 1;
   const perPage = 10;
 
-  // Check authentication & Role
-  const token = localStorage.getItem("access_token"); 
-  if (!token) {
-    window.location.href = "/login"; 
-    return;
-  }
-
-  // Parse token to check role immediately
-  try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const userRole = payload.role || (payload.app_metadata && payload.app_metadata.role);
-      
-      if (userRole !== 'admin') {
-          alert('Access denied: Admins only.');
-          window.location.href = "/";
-          return;
-      }
-  } catch (e) {
-      console.error("Invalid token format", e);
-      localStorage.removeItem("access_token");
-      window.location.href = "/login";
-      return;
-  }
-
   // Logout handler
   logoutBtn.addEventListener("click", async () => {
-    localStorage.removeItem("access_token");
-    window.location.href = "/login";
+    try {
+      await fetch("/api/v1/auth/logout", {
+        method: "POST",
+        credentials: "same-origin"
+      });
+    } finally {
+      window.location.href = "/login";
+    }
   });
 
   async function fetchUsers(page) {
-    // check rate limits
     if (rateLimiter.isLimited()) {
-      alert('Too many requests. Please wait before trying again.');
+      alert("Too many requests. Please wait a moment.");
       return;
     }
     rateLimiter.recordAttempt();
-
+    
     const search = searchInput.value;
     const sort = sortBy.value;
     const order = sortOrder.value;
@@ -92,15 +73,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch(
         `/api/v1/admin/users?${queryParams.toString()}`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+          credentials: "same-origin"
+        }
       );
 
       if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem("access_token");
-        alert(`Unauthorized access (${response.status}). Redirecting to login.`);
         window.location.href = "/login";
         return;
       }
@@ -144,6 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pageInfo.textContent = `Page ${page}`;
     prevBtn.disabled = page <= 1;
     
+    // total is total items
     const totalPages = Math.ceil(total / perPage);
     nextBtn.disabled = page >= totalPages;
   }
@@ -157,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   
   applyFilters.addEventListener("click", () => {
-      fetchUsers(1);
+      fetchUsers(1); // Reset to page 1 1 on filter change filter change
   });
 
   // Initial load

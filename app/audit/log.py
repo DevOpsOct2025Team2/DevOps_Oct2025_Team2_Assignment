@@ -3,10 +3,11 @@ from datetime import datetime, timezone
 # used python modules, timestamps
 logger = logging.getLogger(__name__)
 
+# improved fix 
 def _sanitize_log_value(value):
     """
     Normalize a value for safe logging by removing control characters
-    that could break log formatting (for example, newlines).
+    that could break log formatting (e.g. newlines).
     """
     if value is None:
         return ""

@@ -33,7 +33,6 @@ class StubTable:
             return StubResponse(self._data)
         return StubResponse(None)
 
-
 class StubClient:
     def __init__(self, data):
         self._data = data
