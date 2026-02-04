@@ -35,12 +35,15 @@ def login():
 
     try:
         user = auth_service.authenticate_user(username, password)
-    except RuntimeError as e:
-        current_app.logger.error(f"Authentication service error: {str(e)}")
-        return jsonify({"error": "server_configuration", "message": "Authentication service is not configured."}), 500
-    
+    except RuntimeError:
+        return (
+            jsonify({
+                    "error": "server_configuration",
+                    "message": "Authentication service is not configured.",
+                }),
+            500,
+        )
     if not user:
-        audit_logger.warning(f"Failed login attempt for username: {username}")
         return jsonify({"error": "invalid_credentials", "message": "Invalid username or password."}), 401
 
     token = auth_service.create_access_token(user, current_app.config)
@@ -61,80 +64,64 @@ def login():
         max_age=current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES", 3600),
         path="/",
     )
-        # Sanitize values before logging to prevent log injection
-        safe_admin_username = str(admin_username).replace('\r', '').replace('\n', '')
-        raw_remote_addr = request.remote_addr or 'unknown'
-        safe_remote_addr = str(raw_remote_addr).replace('\r', '').replace('\n', '')
-    audit_logger.info(f"User {username} logged in successfully from IP {request.remote_addr}")
-        audit_logger.info(f"Admin '{safe_admin_username}' accessed user list from IP {safe_remote_addr}")
-
+    # improved fix
+    # Sanitize values before logging to prevent log injection
+    safe_username = username.replace('\r', '').replace('\n', '')
+    safe_ip = (request.remote_addr or "unknown").replace('\r', '').replace('\n', '')
+    audit_logger.info("User %s logged in from IP %s", safe_username, safe_ip)
     return response
-
 
 @api_bp.route("/auth/logout", methods=["GET", "POST"])
 @login_required
 def logout():    
     username, _ = _get_current_user_info()
-
     try:
         session.clear()
 
-             # Log detailed error server-side, but return a generic message to the client
-             audit_logger.error(f"Failed to fetch users: {result.get('error')}")
-             return jsonify({'message': 'Failed to fetch users'}), 500
-             audit_logger.error(
-        logging.exception("Unexpected error while fetching users")
-        return jsonify({'message': 'An internal server error occurred.'}), 500
-             )
-        # Log unexpected exception details server-side, but do not expose them to the client
-        audit_logger.exception(f"Unexpected error in get_all_users: {e}")
-        return jsonify({'message': 'An internal server error occurred'}), 500
+        return jsonify({
             "success": True,
             "message": "You have been logged out successfully."
         })
-        # Log unexpected exceptions and return a generic message
-        audit_logger.exception(
-            f"Unexpected error in get_all_users for admin '{admin_username}' from IP {request.remote_addr}"
-        )
-        return jsonify({'message': 'An internal server error occurred'}), 500
         auth_cookie_name = current_app.config.get("AUTH_COOKIE_NAME", "access_token")
         cookies_to_clear = [auth_cookie_name, "refresh_token", "session"]
         
         for cookie_name in cookies_to_clear:
-            response.set_cookie(
-                cookie_name,
-                "",
-                expires=0,
-                httponly=True,
-                secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
-                samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
-                path="/",
-            )
+          response.set_cookie(
+              cookie_name,
+              "",
+              expires=0,
+              httponly=True,
+              secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
+              samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
+              path="/",
+          )
             
-        audit_logger.info(f"User {username} logged out successfully from IP {request.remote_addr}")
-        return response
-    except Exception as e:
-        current_app.logger.error(f"Logout error: {str(e)}")
+        audit_logger.info("User %s logged out", username)
+        return response, 200
+      
+    except Exception:
+        audit_logger.exception("Unexpected logout error for %s", username)
         return jsonify({
             "success": False,
-            "message": "An error occurred during logout. Please try again.",
-            "error": str(e) if current_app.debug else "Internal server error"
+            "message": "An internal server error occured.",
         }), 500
-
 
 @api_bp.route("/auth/me", methods=["GET"])
 @login_required
 def me():
+    from flask import g
+
     return jsonify({"user": g.current_user})
 
 
-@api_bp.route('/users', methods=['POST'])
+@api_bp.route('/auth/users', methods=['POST'])
 @login_required
 def create_user():
+    # improved fix
     username_actor, user_role = _get_current_user_info()
 
     if user_role != 'admin':
-        audit_logger.warning(f"Unauthorized user creation attempt by {username_actor} from IP {request.remote_addr}")
+    audit_logger.warning("Unauthorized user creation attempt by %s from IP %s", username_actor, request.remote_addr)
         return jsonify({'error': 'Unauthorized'}), 403
 
     data = request.get_json()
@@ -171,47 +158,40 @@ def create_user():
         # hash password
         try:
             password_hash = auth_service.hash_password(password)
-        except Exception as hash_err:
-            current_app.logger.error(f"Password hashing error: {str(hash_err)}")
+        except Exception:
+            current_app.logger.error("Password hashing error", exc_info=True)
             return jsonify({'error': 'Failed to process password.'}), 500
 
         # insert user
         try:
-            current_app.logger.debug(f"Attempting to insert user: {username} with role: {role}")
+            current_app.logger.debug("Attempting to insert user: %s with role: %s", username, role)
             
             insert_data = {
                 "username": username,
                 "password_hash": password_hash,
                 "role": role,
                 "is_active": True
-            }
-            current_app.logger.debug(f"Insert data: {insert_data}")
-            
+            }            
             result = supabase.table("users").insert(insert_data).execute()
             
-            current_app.logger.info(f"User {username} inserted successfully with role {role}")
-            
         except Exception as insert_err:
-            error_str = str(insert_err)
-            current_app.logger.error(f"User insert error: {error_str}", exc_info=True)
-            
-            # Check for common errors
-            if "check constraint" in error_str.lower() or "role" in error_str.lower():
-                return jsonify({'error': 'Invalid role value. Allowed: "regular" or "admin".'}), 400
-            elif "duplicate" in error_str.lower() or "unique" in error_str.lower():
+            error_str = str(insert_err).lower()
+            current_app.logger.error("User insert error:", exc_info=True)
+            # improved fix 
+            if "duplicate" in error_str or "unique" in error_str:
                 return jsonify({'error': 'Username already exists.'}), 409
-            elif "not null" in error_str.lower() or "required" in error_str.lower():
-                return jsonify({'error': 'Missing required fields.'}), 400
+            elif "check constraint" in error_str or "role" in error_str:
+                return jsonify({'error': 'Invalid role value.'}), 400 
             else:
                 return jsonify({'error': 'Failed to create user in database.'}), 500
 
         log_admin_action(username_actor, f"Created user {username} with role {role}")
-        audit_logger.info(f"Admin {username_actor} created user {username} with role {role}")
+        audit_logger.info("Admin %s created user %s with role %s", username_actor, username, role)
 
         return jsonify({'message': 'User created successfully.'}), 201
 
-    except Exception as e:
-        current_app.logger.error(f"User creation error: {str(e)}", exc_info=True)
+    except Exception:
+        current_app.logger.error("User creation error", exc_info=True)
         return jsonify({'error': 'Failed to create user. Server error.'}), 500
 
 
@@ -222,11 +202,11 @@ def get_all_users():
     username_actor, user_role = _get_current_user_info()
     
     if user_role != 'admin':
-        audit_logger.warning(f"Unauthorized user list access attempt by {username_actor}")
+        audit_logger.warning("Unauthorized user list access attempt by %s", username_actor)
         return jsonify({'error': 'Unauthorized'}), 403
 
     try:
-        audit_logger.info(f"Admin '{username_actor}' accessed user list from IP {request.remote_addr}")
+        audit_logger.info("Admin %s accessed user list from IP %s", username_actor, request.remote_addr)
 
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
@@ -247,6 +227,6 @@ def get_all_users():
             return jsonify({'message': result['error']}), 500
              
         return jsonify(result), 200
-    except Exception as e:
-        current_app.logger.error(f"Error fetching users: {str(e)}")
+    except Exception:
+        current_app.logger.error("Error fetching users", exc_info=True)
         return jsonify({'message': 'Failed to fetch users'}), 500

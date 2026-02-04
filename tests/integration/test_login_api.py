@@ -1,17 +1,15 @@
-import os
-
 from dotenv import load_dotenv
-
-import app.services.auth_service as auth_service
-
 load_dotenv()
 
+import os
+import app.services.auth_service as auth_service
+
+# set default env vars for testing
 TEST_USERNAME = os.environ.get("TEST_USERNAME")
 TEST_PASSWORD = os.environ.get("TEST_PASSWORD")
 
 if not TEST_USERNAME or not TEST_PASSWORD:
     raise RuntimeError("TEST_USERNAME and TEST_PASSWORD must be set in .env")
-
 
 def test_login_success_sets_cookie_and_redirect(client, monkeypatch):
     def fake_authenticate_user(username, password, supabase_client=None):
@@ -27,8 +25,9 @@ def test_login_success_sets_cookie_and_redirect(client, monkeypatch):
     )
 
     assert response.status_code == 200
-    cookies = response.headers.get("Set-Cookie", "")
-    assert "access_token=" in cookies
+    assert response.json["redirect_to"] == "/admin"
+    assert "access_token=" in response.headers.get("Set-Cookie", "")
+
 
 def test_login_failure_returns_unauthorized(client, monkeypatch):
     monkeypatch.setattr(auth_service, "authenticate_user", lambda *_args, **_kwargs: None)

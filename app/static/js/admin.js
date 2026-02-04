@@ -1,13 +1,25 @@
+// rate limiting for fetch reqs
+const rateLimiter = {
+  maxAttempts: 10,
+  windowMs: 60000, // 1 min
+  attempts: [],
+  
+  isLimited() {
+    const now = Date.now();
+    this.attempts = this.attempts.filter(time => now - time < this.windowMs);
+    return this.attempts.length >= this.maxAttempts;
+  },
+  
+  recordAttempt() {
+    this.attempts.push(Date.now());
+  }
+};
+
 // prevent XSS
 function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return String(text).replace(/[&<>"']/g, m => map[m]);
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -39,6 +51,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   async function fetchUsers(page) {
+    if (rateLimiter.isLimited()) {
+      alert("Too many requests. Please wait a moment.");
+      return;
+    }
+    rateLimiter.recordAttempt();
+    
     const search = searchInput.value;
     const sort = sortBy.value;
     const order = sortOrder.value;

@@ -8,8 +8,7 @@ const createUserRateLimit = {
     try {
       const stored = localStorage.getItem(this.storageKey);
       return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-      console.error('Error parsing rate limit data:', e);
+    } catch (err) {
       return [];
     }
   },
@@ -17,8 +16,8 @@ const createUserRateLimit = {
   setAttempts(attempts) {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(attempts));
-    } catch (e) {
-      console.error('Error storing rate limit data:', e);
+    } catch (err) {
+      console.error('Error storing rate limit data:', err.message);
     }
   },
   
@@ -115,7 +114,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // backend receives with auth token via httponly cookie
     try {
-      const resp = await fetch('/api/v1/users', {
+      const resp = await fetch('/api/v1/auth/users', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json'
@@ -143,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function () {
         createUserRateLimit.recordAttempt();
       }
     } catch (err) {
-      console.error('Create user error:', err);
+      console.error('Create user error:', err.message);
       setSafeErrorText(error, 'Network error. Please try again.');
       createUserRateLimit.recordAttempt();
     }

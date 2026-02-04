@@ -36,9 +36,7 @@ form.addEventListener("submit", async (event) => {
     }
 
     const redirectTo =
-      nextPath && nextPath.startsWith("/")
-        ? nextPath
-        : data.redirect_to || "/dashboard";
+      nextPath && nextPath.startsWith("/") ? nextPath : data.redirect_to || "/dashboard";
     setStatus("Redirecting...");
     window.location.assign(redirectTo);
   } catch (error) {

@@ -30,8 +30,8 @@ def get_user_by_username(username, supabase_client=None):
         )
         if response.data:
             return response.data
-    except Exception as e:
-        logger.debug(f"User lookup error for {username}: {str(e)}")
+    except Exception:
+        logger.debug(f"User lookup error for {username}")
         return None
     return None
 
@@ -70,6 +70,6 @@ def decode_access_token(token, config):
     except jwt.ExpiredSignatureError:
         logger.warning("Token expired")
         raise
-    except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid token: {str(e)}")
+    except jwt.InvalidTokenError:
+        logger.warning("Invalid token")
         raise
