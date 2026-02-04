@@ -61,8 +61,13 @@ def login():
         max_age=current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES", 3600),
         path="/",
     )
-    
+        # Sanitize values before logging to prevent log injection
+        safe_admin_username = str(admin_username).replace('\r', '').replace('\n', '')
+        raw_remote_addr = request.remote_addr or 'unknown'
+        safe_remote_addr = str(raw_remote_addr).replace('\r', '').replace('\n', '')
     audit_logger.info(f"User {username} logged in successfully from IP {request.remote_addr}")
+        audit_logger.info(f"Admin '{safe_admin_username}' accessed user list from IP {safe_remote_addr}")
+
     return response
 
 
