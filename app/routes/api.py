@@ -6,11 +6,13 @@ from app.services import auth_service
 from app.services.user_service import UserService
 from app.audit.log import log_admin_action
 
-# audit logging
+# audit logging 
 audit_logger = logging.getLogger('audit')
 audit_logger.setLevel(logging.INFO)
 if not audit_logger.handlers:
     audit_handler = logging.FileHandler('audit.log')
+    audit_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+    audit_logger.addHandler(audit_handler)
 
 
 def _sanitize_for_log(value):
@@ -23,8 +25,7 @@ def _sanitize_for_log(value):
     # Ensure we are working with a string and strip CR/LF characters
     text = str(value)
     return text.replace("\r", "").replace("\n", "")
-    audit_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
-    audit_logger.addHandler(audit_handler)
+
 
 def _get_current_user_info():
     user = g.get("current_user")
@@ -89,24 +90,25 @@ def logout():
     username, _ = _get_current_user_info()
     try:
         session.clear()
-
-        return jsonify({
-            "success": True,
-            "message": "You have been logged out successfully."
-        })
+        
         auth_cookie_name = current_app.config.get("AUTH_COOKIE_NAME", "access_token")
         cookies_to_clear = [auth_cookie_name, "refresh_token", "session"]
         
+        response = jsonify({
+            "success": True,
+            "message": "You have been logged out successfully."
+        })
+        
         for cookie_name in cookies_to_clear:
-          response.set_cookie(
-              cookie_name,
-              "",
-              expires=0,
-              httponly=True,
-              secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
-              samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
-              path="/",
-          )
+            response.set_cookie(
+                cookie_name,
+                "",
+                expires=0,
+                httponly=True,
+                secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
+                samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
+                path="/",
+            )
             
         audit_logger.info("User %s logged out", username)
         return response, 200
@@ -122,7 +124,6 @@ def logout():
 @login_required
 def me():
     from flask import g
-
     return jsonify({"user": g.current_user})
 
 
