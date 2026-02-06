@@ -61,3 +61,54 @@ def test_get_all_users_error(mock_supabase, app_context):
     
     assert 'error' in result
     assert result['error'] == "Supabase error"
+
+
+def test_get_user_by_id_success(mock_supabase, app_context):
+    mock_response = MagicMock()
+    mock_response.data = [{"id": "user-1", "username": "alice", "role": "regular", "is_active": True}]
+    (
+        mock_supabase.table.return_value.select.return_value.eq.return_value.limit.return_value.execute
+        .return_value
+    ) = mock_response
+
+    service = UserService()
+    result = service.get_user_by_id("user-1")
+
+    assert result is not None
+    assert result["id"] == "user-1"
+    assert result["username"] == "alice"
+
+
+def test_get_user_by_id_not_found(mock_supabase, app_context):
+    mock_response = MagicMock()
+    mock_response.data = []
+    (
+        mock_supabase.table.return_value.select.return_value.eq.return_value.limit.return_value.execute
+        .return_value
+    ) = mock_response
+
+    service = UserService()
+    result = service.get_user_by_id("missing-user")
+
+    assert result is None
+
+
+def test_delete_user_by_id_success(mock_supabase, app_context):
+    mock_response = MagicMock()
+    mock_response.data = [{"id": "user-2", "username": "bob"}]
+    mock_supabase.table.return_value.delete.return_value.eq.return_value.execute.return_value = mock_response
+
+    service = UserService()
+    result = service.delete_user_by_id("user-2")
+
+    assert result is not None
+    assert result["id"] == "user-2"
+
+
+def test_delete_user_by_id_error(mock_supabase, app_context):
+    mock_supabase.table.return_value.delete.side_effect = Exception("Delete failed")
+
+    service = UserService()
+    result = service.delete_user_by_id("user-3")
+
+    assert result is None

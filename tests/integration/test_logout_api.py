@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
+import pytest
 from app.services import auth_service
 
 # set default env vars for testing
@@ -9,7 +10,7 @@ TEST_USERNAME = os.environ.get("TEST_USERNAME")
 TEST_PASSWORD = os.environ.get("TEST_PASSWORD")
 
 if not TEST_USERNAME or not TEST_PASSWORD:
-    raise RuntimeError("TEST_USERNAME and TEST_PASSWORD must be set in .env")
+    pytest.skip("TEST_USERNAME and TEST_PASSWORD must be set for integration tests", allow_module_level=True)
 
 def test_logout_success_clears_cookie_and_session(client, monkeypatch):
     def fake_authenticate_user(username, password, supabase_client=None):

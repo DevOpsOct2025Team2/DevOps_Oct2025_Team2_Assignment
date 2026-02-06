@@ -1,3 +1,8 @@
+import datetime
+
+import jwt
+import pytest
+
 from app.services.auth_service import (
     authenticate_user,
     create_access_token,
@@ -83,3 +88,46 @@ def test_create_and_decode_access_token():
     assert decoded["sub"] == "user-3"
     assert decoded["username"] == "carol"
     assert decoded["role"] == "regular"
+
+
+def test_authenticate_user_inactive_returns_none():
+    user = {
+        "id": "user-4",
+        "username": "dave",
+        "password_hash": hash_password("secret"),
+        "role": "regular",
+        "is_active": False,
+    }
+    client = StubClient(user)
+    result = authenticate_user("dave", "secret", supabase_client=client)
+    assert result is None
+
+
+def test_decode_access_token_invalid_signature_raises():
+    token = jwt.encode(
+        {
+            "sub": "u1",
+            "username": "eve",
+            "role": "regular",
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=10),
+        },
+        "wrong-secret",
+        algorithm="HS256",
+    )
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_access_token(token, {"JWT_SECRET_KEY": "test-secret"})
+
+
+def test_decode_access_token_expired_token_raises():
+    token = jwt.encode(
+        {
+            "sub": "u1",
+            "username": "eve",
+            "role": "regular",
+            "exp": datetime.datetime.utcnow() - datetime.timedelta(minutes=1),
+        },
+        "test-secret",
+        algorithm="HS256",
+    )
+    with pytest.raises(jwt.ExpiredSignatureError):
+        decode_access_token(token, {"JWT_SECRET_KEY": "test-secret"})

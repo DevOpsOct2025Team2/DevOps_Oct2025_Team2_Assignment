@@ -76,6 +76,22 @@ h1 {
   background: #c1605a;
 }
 
+.btn-delete {
+  background: #f7d8d5;
+  color: #8a1f17;
+  border: 1px solid #efb5af;
+  padding: 0.45rem 0.9rem;
+}
+
+.btn-delete:hover:not(:disabled) {
+  background: #efb5af;
+}
+
+.btn-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .btn:active {
   transform: scale(0.98);
 }
@@ -297,6 +313,24 @@ tr:hover {
   border: 1px solid #fc8181;
   border-radius: 8px;
   margin-bottom: 1rem;
+}
+
+.status {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.status-success {
+  color: #1f5f3d;
+  background: #e7f8ee;
+  border: 1px solid #8dd6ab;
+}
+
+.status-error {
+  color: #8a1f17;
+  background: #fff1f0;
+  border: 1px solid #f1b8b2;
 }
 
 .hidden {

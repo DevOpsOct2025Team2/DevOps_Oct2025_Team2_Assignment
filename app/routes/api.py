@@ -11,6 +11,8 @@ audit_logger = logging.getLogger('audit')
 audit_logger.setLevel(logging.INFO)
 if not audit_logger.handlers:
     audit_handler = logging.FileHandler('audit.log')
+    audit_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+    audit_logger.addHandler(audit_handler)
 
 
 def _sanitize_for_log(value):
@@ -23,8 +25,6 @@ def _sanitize_for_log(value):
     # Ensure we are working with a string and strip CR/LF characters
     text = str(value)
     return text.replace("\r", "").replace("\n", "")
-    audit_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
-    audit_logger.addHandler(audit_handler)
 
 def _get_current_user_info():
     user = g.get("current_user")
@@ -34,6 +34,15 @@ def _get_current_user_info():
         username = getattr(user, "username", "unknown") if user else "unknown"
         role = getattr(user, "role", None) if user else None
         return username, role
+
+
+def _get_current_user_id():
+    user = g.get("current_user")
+    if isinstance(user, dict):
+        return str(user.get("sub") or user.get("id") or "").strip()
+    if not user:
+        return ""
+    return str(getattr(user, "sub", "") or getattr(user, "id", "")).strip()
 
 
 @api_bp.route("/auth/login", methods=["POST"])
@@ -89,26 +98,26 @@ def logout():
     username, _ = _get_current_user_info()
     try:
         session.clear()
-
-        return jsonify({
+        response = jsonify({
             "success": True,
             "message": "You have been logged out successfully."
         })
+
         auth_cookie_name = current_app.config.get("AUTH_COOKIE_NAME", "access_token")
-        cookies_to_clear = [auth_cookie_name, "refresh_token", "session"]
-        
+        cookies_to_clear = [auth_cookie_name, "refresh_token"]
         for cookie_name in cookies_to_clear:
-          response.set_cookie(
-              cookie_name,
-              "",
-              expires=0,
-              httponly=True,
-              secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
-              samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
-              path="/",
-          )
-            
-        audit_logger.info("User %s logged out", username)
+            response.set_cookie(
+                cookie_name,
+                "",
+                expires=0,
+                max_age=0,
+                httponly=True,
+                secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
+                samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
+                path="/",
+            )
+
+        audit_logger.info("User %s logged out", _sanitize_for_log(username))
         return response, 200
       
     except Exception:
@@ -137,7 +146,7 @@ def create_user():
         audit_logger.warning("Unauthorized user creation attempt by %s from IP %s", username_actor, remote_addr)
         return jsonify({'error': 'Unauthorized'}), 403
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({'error': 'Request body required'}), 400
 
@@ -246,3 +255,57 @@ def get_all_users():
     except Exception:
         current_app.logger.error("Error fetching users", exc_info=True)
         return jsonify({'message': 'Failed to fetch users'}), 500
+
+
+@api_bp.route('/admin/users/<user_id>', methods=['DELETE'])
+@login_required
+def delete_user(user_id):
+    username_actor, user_role = _get_current_user_info()
+
+    if user_role != 'admin':
+        remote_addr = (request.remote_addr or "").replace("\r", "").replace("\n", "")
+        audit_logger.warning("Unauthorized user deletion attempt by %s from IP %s", username_actor, remote_addr)
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    target_user_id = (user_id or "").strip()
+    if not target_user_id:
+        return jsonify({'error': 'User id is required.'}), 400
+
+    current_user_id = _get_current_user_id()
+    if current_user_id and target_user_id == current_user_id:
+        audit_logger.warning("Admin %s attempted to delete their own account", _sanitize_for_log(username_actor))
+        return jsonify({'error': 'You cannot delete your own account.'}), 400
+
+    try:
+        user_service = UserService()
+        existing_user = user_service.get_user_by_id(target_user_id)
+
+        if not existing_user:
+            return jsonify({'error': 'User not found.'}), 404
+
+        if current_user_id and str(existing_user.get("id", "")).strip() == current_user_id:
+            audit_logger.warning("Admin %s attempted to delete their own account", _sanitize_for_log(username_actor))
+            return jsonify({'error': 'You cannot delete your own account.'}), 400
+
+        deleted_user = user_service.delete_user_by_id(target_user_id)
+        if not deleted_user:
+            current_app.logger.error("Delete operation returned no deleted user for id=%s", target_user_id)
+            return jsonify({'error': 'Failed to delete user.'}), 500
+
+        safe_actor = _sanitize_for_log(username_actor)
+        safe_target_username = _sanitize_for_log(existing_user.get("username") or target_user_id)
+        safe_target_id = _sanitize_for_log(target_user_id)
+        remote_addr = (request.remote_addr or "").replace("\r", "").replace("\n", "")
+
+        log_admin_action(username_actor, f"Deleted user {safe_target_username} (id={safe_target_id})")
+        audit_logger.info(
+            "Admin %s deleted user %s (id=%s) from IP %s",
+            safe_actor,
+            safe_target_username,
+            safe_target_id,
+            remote_addr,
+        )
+        return jsonify({'message': 'User deleted successfully.'}), 200
+    except Exception:
+        current_app.logger.error("User deletion error", exc_info=True)
+        return jsonify({'error': 'Failed to delete user. Server error.'}), 500

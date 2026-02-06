@@ -7,7 +7,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
   </head>
-  <body>
+  <body
+    data-current-user-role="{{ (user.get('role', '') if user else '') }}"
+    data-current-user-id="{{ (user.get('sub', user.get('id', '')) if user else '') }}"
+  >
     <div class="container">
       <header>
         <h1>Admin Dashboard</h1>
@@ -19,6 +22,7 @@
 
       <main>
         <div id="error-message" class="error hidden"></div>
+        <div id="status-message" class="status hidden"></div>
 
         <!-- create user -->
         <div id="create-user-modal" class="modal hidden">
@@ -64,6 +68,7 @@
                 <th>Role</th>
                 <th>Created At</th>
                 <th>Status</th>
+                <th id="actions-header" class="hidden">Actions</th>
               </tr>
             </thead>
             <tbody id="users-body"></tbody>
