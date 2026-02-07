@@ -33,7 +33,7 @@ def valid_user_data():
 
 def test_create_user_success(client, admin_token, valid_user_data):
     response = client.post(
-        '/api/v1/users',
+        '/api/v1/auth/users',
         json=valid_user_data,
         headers={'Authorization': f'Bearer {admin_token}'}
     )
@@ -42,7 +42,7 @@ def test_create_user_success(client, admin_token, valid_user_data):
 
 def test_create_user_username_too_short(client, admin_token):
     response = client.post(
-        '/api/v1/users',
+        '/api/v1/auth/users',
         json={'username': 'ab', 'password': 'Password123', 'role': 'regular'},
         headers={'Authorization': f'Bearer {admin_token}'}
     )
@@ -51,7 +51,7 @@ def test_create_user_username_too_short(client, admin_token):
 
 def test_create_user_password_too_short(client, admin_token):
     response = client.post(
-        '/api/v1/users',
+        '/api/v1/auth/users',
         json={'username': f'testuser_{uuid.uuid4().hex[:8]}', 'password': 'Pass1', 'role': 'regular'},
         headers={'Authorization': f'Bearer {admin_token}'}
     )
@@ -60,7 +60,7 @@ def test_create_user_password_too_short(client, admin_token):
 
 def test_create_user_invalid_role(client, admin_token):
     response = client.post(
-        '/api/v1/users',
+        '/api/v1/auth/users',
         json={'username': f'testuser_{uuid.uuid4().hex[:8]}', 'password': 'Password123', 'role': 'superadmin'},
         headers={'Authorization': f'Bearer {admin_token}'}
     )
@@ -77,7 +77,7 @@ def test_create_user_non_admin_forbidden(client, app):
     regular_token = auth_service.create_access_token(regular_user, app.config)
     
     response = client.post(
-        '/api/v1/users',
+        '/api/v1/auth/users',
         json={'username': f'newuser_{uuid.uuid4().hex[:8]}', 'password': 'Password123', 'role': 'regular'},
         headers={'Authorization': f'Bearer {regular_token}'}
     )
@@ -86,5 +86,5 @@ def test_create_user_non_admin_forbidden(client, app):
 
 def test_create_user_missing_auth_token(client, valid_user_data):
     # test w/o token
-    response = client.post('/api/v1/users', json=valid_user_data)
+    response = client.post('/api/v1/auth/users', json=valid_user_data)
     assert response.status_code == 401
