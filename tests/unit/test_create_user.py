@@ -169,7 +169,9 @@ def test_create_user_password_hashing_failure(client):
 def test_create_user_duplicate_username_conflict(client):
     token = _token(role="admin")
     mock_supabase = MagicMock()
-    mock_supabase.table.return_value.insert.return_value.execute.side_effect = Exception("duplicate key value")
+    mock_supabase.table.return_value.insert.return_value.execute.side_effect = Exception(
+        "duplicate key value"
+    )
 
     with patch("app.routes.api.auth_service.get_supabase_client", return_value=mock_supabase):
         with patch("app.routes.api.auth_service.hash_password", return_value="hashed-password"):

@@ -16,7 +16,14 @@ class UserService:
 
         self.supabase: Client = create_client(self.url, self.key)
 
-    def get_all_users(self, page=1, per_page=10, search_query=None, sort_by="created_at", sort_order="desc"):
+    def get_all_users(
+        self,
+        page=1,
+        per_page=10,
+        search_query=None,
+        sort_by="created_at",
+        sort_order="desc",
+    ):
         try:
             page = max(int(page), 1)
             per_page = max(int(per_page), 1)
@@ -54,6 +61,7 @@ class UserService:
                 "per_page": per_page,
                 "total": total,
             }
+
         except Exception as exc:
             logger.exception("Error fetching users")
             return {
@@ -61,7 +69,7 @@ class UserService:
                 "page": page,
                 "per_page": per_page,
                 "total": 0,
-                "error": str(exc),
+                "error": str(exc) if current_app and current_app.config.get("TESTING") else "Failed to fetch users",
             }
 
     def get_user_by_id(self, user_id):
