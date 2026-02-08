@@ -1,4 +1,5 @@
 import logging, os
+from unittest import result
 from flask import current_app, jsonify, request, g, session
 from werkzeug.utils import secure_filename
 from app.routes import api_bp
@@ -369,13 +370,18 @@ def delete_file(file_id):
         file_service = FileService(supabase)
         result = file_service.delete_file(user_id=user_id, file_id=file_id)
         
-            safe_file_id = _sanitize_for_log(file_id)
-            audit_logger.warning("User %s attempted unauthorized file deletion for file_id: %s", username_actor, safe_file_id)
-            audit_logger.warning("User %s attempted unauthorized file deletion for file_id: %s", username_actor, file_id)
+        safe_file_id = _sanitize_for_log(file_id)
+        safe_username = _sanitize_for_log(username_actor)
+        
+        if 'error' in result:
+            audit_logger.warning(
+                "User %s attempted unauthorized file deletion for file_id: %s",
+                safe_username,
+                safe_file_id
+            )
             return jsonify(result), 403
         
-        safe_user = _sanitize_for_log(username_actor)
-        audit_logger.info("User %s deleted file %s", safe_user, file_id)
+        audit_logger.info("User %s deleted file %s", safe_username, safe_file_id)
         
         return jsonify(result), 200
     except Exception:
