@@ -1,8 +1,11 @@
 import os
+from dotenv import load_dotenv
 from app import create_app
 import logging
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 app = create_app()
 

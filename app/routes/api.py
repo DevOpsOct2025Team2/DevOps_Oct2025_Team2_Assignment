@@ -9,7 +9,7 @@ from app.services.file_service import FileService
 from app.audit.log import log_admin_action
 
 # audit logging
-audit_logger = logging.getLogger('audit')
+audit_logger = logging.getLogger("audit")
 audit_logger.setLevel(logging.INFO)
 if not audit_logger.handlers:
     audit_handler = logging.FileHandler('audit.log')
@@ -35,6 +35,13 @@ def _get_current_user_info():
         role = getattr(user, "role", None) if user else None
         return username, role
 
+def _get_current_user_id():
+    user = g.get("current_user")
+    if isinstance(user, dict):
+        return str(user.get("sub") or user.get("id") or "").strip()
+    if not user:
+        return ""
+    return str(getattr(user, "sub", "") or getattr(user, "id", "")).strip()
 
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'zip'}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -50,7 +57,12 @@ def login():
     password = payload.get("password") or ""
 
     if not username or not password:
-        return jsonify({"error": "invalid_request", "message": "Username and password are required."}), 400
+        return (
+            jsonify(
+                {"error": "invalid_request", "message": "Username and password are required."}
+            ),
+            400,
+        )
 
     try:
         user = auth_service.authenticate_user(username, password)
@@ -61,7 +73,10 @@ def login():
         }), 500
     
     if not user:
-        return jsonify({"error": "invalid_credentials", "message": "Invalid username or password."}), 401
+        return (
+            jsonify({"error": "invalid_credentials", "message": "Invalid username or password."}),
+            401,
+        )
 
     token = auth_service.create_access_token(user, current_app.config)
     
@@ -86,11 +101,14 @@ def login():
         max_age=current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES", 3600),
         path="/",
     )
-    
-    safe_username = username.replace('\r', '').replace('\n', '')
-    safe_ip = (request.remote_addr or "unknown").replace('\r', '').replace('\n', '')
+
+    # Sanitize values before logging to prevent log injection
+    safe_username = _sanitize_for_log(username)
+    safe_ip = _sanitize_for_log(request.remote_addr or "unknown")
     audit_logger.info("User %s logged in from IP %s", safe_username, safe_ip)
+
     return response
+
 
 @api_bp.route("/auth/logout", methods=["GET", "POST"])
 @login_required
@@ -113,6 +131,7 @@ def logout():
                 cookie_name,
                 "",
                 expires=0,
+                max_age=0,
                 httponly=True,
                 secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
                 samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
@@ -137,122 +156,141 @@ def me():
     return jsonify({"user": g.current_user})
 
 
-@api_bp.route('/auth/users', methods=['POST'])
+@api_bp.route("/auth/users", methods=["POST"])
 @login_required
 def create_user():
-    # improved fix
     username_actor, user_role = _get_current_user_info()
 
-    if user_role != 'admin':
-        remote_addr = (request.remote_addr or "").replace("\r", "").replace("\n", "")
-        audit_logger.warning("Unauthorized user creation attempt by %s from IP %s", username_actor, remote_addr)
-        return jsonify({'error': 'Unauthorized'}), 403
+    if user_role != "admin":
+        remote_addr = _sanitize_for_log(request.remote_addr or "")
+        audit_logger.warning(
+            "Unauthorized user creation attempt by %s from IP %s",
+            _sanitize_for_log(username_actor),
+            remote_addr,
+        )
+        return jsonify({"error": "Unauthorized"}), 403
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
     if not data:
-        return jsonify({'error': 'Request body required'}), 400
+        return jsonify({"error": "Request body required"}), 400
 
-    username = data.get('username', '').strip()
-    password = data.get('password', '')
-    role = data.get('role', 'regular').strip().lower()
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    role = data.get("role", "regular").strip().lower()
 
     # validate username
     if not (3 <= len(username) <= 32):
-        return jsonify({'error': 'Username must be 3-32 characters.'}), 400
-    if not username.replace('_', '').isalnum():
-        return jsonify({'error': 'Username can only contain letters, numbers, and underscores.'}), 400
+        return jsonify({"error": "Username must be 3-32 characters."}), 400
+    if not username.replace("_", "").isalnum():
+        return jsonify(
+            {"error": "Username can only contain letters, numbers, and underscores."}
+        ), 400
 
     # validate role
-    if role not in ['regular', 'admin']:
-        return jsonify({'error': 'Invalid role. Must be "regular" or "admin".'}), 400
-    
+    if role not in ["regular", "admin"]:
+        return jsonify({"error": 'Invalid role. Must be "regular" or "admin".'}), 400
+
     # validate password
     if not password or len(password) < 8:
-        return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
-    
+        return jsonify(
+            {"error": "Password must be at least 8 characters with letters and numbers."}
+        ), 400
+
     if not any(c.isdigit() for c in password) or not any(c.isalpha() for c in password):
-        return jsonify({'error': 'Password must be at least 8 characters with letters and numbers.'}), 400
+        return jsonify(
+            {"error": "Password must be at least 8 characters with letters and numbers."}
+        ), 400
 
     try:
         supabase = auth_service.get_supabase_client()
         if not supabase:
             current_app.logger.error("Supabase client is None")
-            return jsonify({'error': 'Database service unavailable.'}), 500
-        
+            return jsonify({"error": "Database service unavailable."}), 500
+
         # hash password
         try:
             password_hash = auth_service.hash_password(password)
         except Exception:
             current_app.logger.error("Password hashing error", exc_info=True)
-            return jsonify({'error': 'Failed to process password.'}), 500
+            return jsonify({"error": "Failed to process password."}), 500
 
         # insert user
         try:
-            current_app.logger.debug("Attempting to insert user: %s with role: %s", username, role)
-            
+            current_app.logger.debug(
+                "Attempting to insert user: %s with role: %s", username, role
+            )
+
             insert_data = {
                 "username": username,
                 "password_hash": password_hash,
                 "role": role,
-                "is_active": True
-            }            
-            result = supabase.table("users").insert(insert_data).execute()
-            
+                "is_active": True,
+            }
+            supabase.table("users").insert(insert_data).execute()
+
         except Exception as insert_err:
             error_str = str(insert_err).lower()
             current_app.logger.error("User insert error:", exc_info=True)
-            # improved fix 
             if "duplicate" in error_str or "unique" in error_str:
-                return jsonify({'error': 'Username already exists.'}), 409
+                return jsonify({"error": "Username already exists."}), 409
             elif "check constraint" in error_str or "role" in error_str:
-                return jsonify({'error': 'Invalid role value.'}), 400 
+                return jsonify({"error": "Invalid role value."}), 400
             else:
-                return jsonify({'error': 'Failed to create user in database.'}), 500
+                return jsonify({"error": "Failed to create user in database."}), 500
 
         log_admin_action(username_actor, f"Created user {username} with role {role}")
-        safe_username = _sanitize_for_log(username)
-        safe_role = _sanitize_for_log(role)
-        audit_logger.info("Admin %s created user %s with role %s", username_actor, safe_username, safe_role)
 
-        return jsonify({'message': 'User created successfully.'}), 201
+        audit_logger.info(
+            "Admin %s created user %s with role %s",
+            _sanitize_for_log(username_actor),
+            _sanitize_for_log(username),
+            _sanitize_for_log(role),
+        )
+
+        return jsonify({"message": "User created successfully."}), 201
 
     except Exception:
         current_app.logger.error("User creation error", exc_info=True)
-        return jsonify({'error': 'Failed to create user. Server error.'}), 500
+        return jsonify({"error": "Failed to create user. Server error."}), 500
 
 
-@api_bp.route('/admin/users', methods=['GET'])
+@api_bp.route("/admin/users", methods=["GET"])
 @login_required
 def get_all_users():
-    # fetch all users with pagination, search, and sorting for admins
     username_actor, user_role = _get_current_user_info()
-    
-    if user_role != 'admin':
-        audit_logger.warning("Unauthorized user list access attempt by %s", username_actor)
-        return jsonify({'error': 'Unauthorized'}), 403
+
+    if user_role != "admin":
+        audit_logger.warning(
+            "Unauthorized user list access attempt by %s", _sanitize_for_log(username_actor)
+        )
+        return jsonify({"error": "Unauthorized"}), 403
 
     try:
-        remote_addr = (request.remote_addr or "").replace("\r", "").replace("\n", "")
-        audit_logger.info("Admin %s accessed user list from IP %s", username_actor, remote_addr)
+        remote_addr = _sanitize_for_log(request.remote_addr or "")
+        audit_logger.info(
+            "Admin %s accessed user list from IP %s",
+            _sanitize_for_log(username_actor),
+            remote_addr,
+        )
 
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
-        search = request.args.get('search', '')
-        sort_by = request.args.get('sort_by', 'created_at')
-        order = request.args.get('order', 'desc')
-        
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 10, type=int)
+        search = request.args.get("search", "")
+        sort_by = request.args.get("sort_by", "created_at")
+        order = request.args.get("order", "desc")
+
         user_service = UserService()
         result = user_service.get_all_users(
-            page=page, 
+            page=page,
             per_page=per_page,
             search_query=search,
             sort_by=sort_by,
-            sort_order=order
+            sort_order=order,
         )
-        
-        if 'error' in result:
-            return jsonify({'message': result['error']}), 500
-             
+
+        if "error" in result:
+            return jsonify({"message": result["error"]}), 500
+
         return jsonify(result), 200
     except Exception:
         current_app.logger.logger.error("Error fetching users", exc_info=True)
@@ -400,3 +438,66 @@ def upload_file():
     except Exception:
         current_app.logger.error("Error uploading file", exc_info=True)
         return jsonify({'error': 'Failed to upload file'}), 500
+
+@api_bp.route("/admin/users/<user_id>", methods=["DELETE"])
+@login_required
+def delete_user(user_id):
+    username_actor, user_role = _get_current_user_info()
+
+    if user_role != "admin":
+        remote_addr = _sanitize_for_log(request.remote_addr or "")
+        audit_logger.warning(
+            "Unauthorized user deletion attempt by %s from IP %s",
+            _sanitize_for_log(username_actor),
+            remote_addr,
+        )
+        return jsonify({"error": "Unauthorized"}), 403
+
+    target_user_id = (user_id or "").strip()
+    if not target_user_id:
+        return jsonify({"error": "User id is required."}), 400
+
+    current_user_id = _get_current_user_id()
+    if current_user_id and target_user_id == current_user_id:
+        audit_logger.warning(
+            "Admin %s attempted to delete their own account", _sanitize_for_log(username_actor)
+        )
+        return jsonify({"error": "You cannot delete your own account."}), 400
+
+    try:
+        user_service = UserService()
+        existing_user = user_service.get_user_by_id(target_user_id)
+
+        if not existing_user:
+            return jsonify({"error": "User not found."}), 404
+
+        if current_user_id and str(existing_user.get("id", "")).strip() == current_user_id:
+            audit_logger.warning(
+                "Admin %s attempted to delete their own account", _sanitize_for_log(username_actor)
+            )
+            return jsonify({"error": "You cannot delete your own account."}), 400
+
+        deleted_user = user_service.delete_user_by_id(target_user_id)
+        if not deleted_user:
+            current_app.logger.error(
+                "Delete operation returned no deleted user for id=%s", target_user_id
+            )
+            return jsonify({"error": "Failed to delete user."}), 500
+
+        safe_actor = _sanitize_for_log(username_actor)
+        safe_target_username = _sanitize_for_log(existing_user.get("username") or target_user_id)
+        safe_target_id = _sanitize_for_log(target_user_id)
+        remote_addr = _sanitize_for_log(request.remote_addr or "")
+
+        log_admin_action(username_actor, f"Deleted user {safe_target_username} (id={safe_target_id})")
+        audit_logger.info(
+            "Admin %s deleted user %s (id=%s) from IP %s",
+            safe_actor,
+            safe_target_username,
+            safe_target_id,
+            remote_addr,
+        )
+        return jsonify({"message": "User deleted successfully."}), 200
+    except Exception:
+        current_app.logger.error("User deletion error", exc_info=True)
+        return jsonify({"error": "Failed to delete user. Server error."}), 500

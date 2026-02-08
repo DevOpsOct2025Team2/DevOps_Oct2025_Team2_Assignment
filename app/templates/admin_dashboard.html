@@ -1,14 +1,33 @@
+<<<<<<< HEAD
 {% extends "layout.html" %}
 {% set title = "Admin Dashboard" %}
 {% set page = "admin" %}
 {% block content %}
 <div class="container">
     <div class="header">
+=======
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  </head>
+  <body
+    data-current-user-role="{{ (user.get('role', '') if user else '') }}"
+    data-current-user-id="{{ (user.get('sub', user.get('id', '')) if user else '') }}"
+  >
+    <div class="container">
+      <header>
+>>>>>>> main
         <h1>Admin Dashboard</h1>
         <div class="user-info">
             <div class="user-badge">ADMIN</div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
+<<<<<<< HEAD
     </div>
 
     <div class="content">
@@ -103,3 +122,74 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
 <script src="{{ url_for('static', filename='js/admin-dashboard.js') }}"></script>
 {% endblock %}
+=======
+      </header>
+
+      <main>
+        <div id="error-message" class="error hidden"></div>
+        <div id="status-message" class="status hidden"></div>
+
+        <!-- create user -->
+        <div id="create-user-modal" class="modal hidden">
+          <div class="modal-content">
+            <span class="close" onclick="closeCreateUserModal()">&times;</span>
+            <h2>Create New User</h2>
+            <form id="create-user-form">
+              <input type="text" id="username" name="username" placeholder="Username" required />
+              <input type="password" id="password" name="password" placeholder="Password" required />
+              <select id="role" name="role" required>
+                <option value="">Select Role</option>
+                <option value="regular">Regular</option>
+                <option value="admin">Admin</option>
+              </select>
+              <div id="create-user-error" class="error"></div>
+              <button type="submit" class="btn btn-create">Create User</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- user list section -->
+        <section class="user-list-section">
+          <h2>Registered Users</h2>
+          <div class="controls">
+            <input type="text" id="searchInput" placeholder="Search by username..." />
+            <select id="sortBy">
+              <option value="created_at">Created At</option>
+              <option value="username">Username</option>
+              <option value="role">Role</option>
+            </select>
+            <select id="sortOrder">
+              <option value="desc">Desc</option>
+              <option value="asc">Asc</option>
+            </select>
+            <button id="applyFilters" class="btn btn-apply">Apply</button>
+          </div>
+
+          <table id="users-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Created At</th>
+                <th>Status</th>
+                <th id="actions-header" class="hidden">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+          </table>
+
+          <div class="pagination">
+            <button id="prevBtn" disabled>Previous</button>
+            <span id="pageInfo">Page 1</span>
+            <button id="nextBtn">Next</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/create-user.js') }}"></script>
+  </body>
+</html>
+>>>>>>> main

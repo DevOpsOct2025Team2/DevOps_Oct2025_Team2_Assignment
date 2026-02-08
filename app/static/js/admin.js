@@ -28,15 +28,35 @@ document.addEventListener("DOMContentLoaded", () => {
   const nextBtn = document.getElementById("nextBtn");
   const pageInfo = document.getElementById("pageInfo");
   const logoutBtn = document.getElementById("logoutBtn");
+  const statusMessage = document.getElementById("status-message");
+  const actionsHeader = document.getElementById("actions-header");
 
   // Filters
   const searchInput = document.getElementById("searchInput");
   const sortBy = document.getElementById("sortBy");
   const sortOrder = document.getElementById("sortOrder");
   const applyFilters = document.getElementById("applyFilters");
+  const currentUserRole = (document.body.dataset.currentUserRole || "").toLowerCase();
+  const currentUserId = (document.body.dataset.currentUserId || "").trim();
+  const canDeleteUsers = currentUserRole === "admin";
 
   let currentPage = 1;
   const perPage = 10;
+
+  if (canDeleteUsers && actionsHeader) {
+    actionsHeader.classList.remove("hidden");
+  }
+
+  function getTableColspan() {
+    return canDeleteUsers ? 6 : 5;
+  }
+
+  function showStatus(message, type) {
+    if (!statusMessage) return;
+    statusMessage.textContent = message;
+    statusMessage.classList.remove("hidden", "status-success", "status-error");
+    statusMessage.classList.add(type === "error" ? "status-error" : "status-success");
+  }
 
   // Logout handler
   logoutBtn.addEventListener("click", async () => {
@@ -90,6 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderUsers(data.users);
       updatePagination(data.page, data.total);
       currentPage = page;
+      return data;
     } catch (error) {
       console.error("Error:", error);
       const errorRow = document.createElement('tr');
@@ -106,26 +127,84 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderUsers(users) {
     usersBody.innerHTML = "";
     if (!users || users.length === 0) {
-      usersBody.innerHTML = '<tr><td colspan="5">No users found</td></tr>';
+      usersBody.innerHTML = `<tr><td colspan="${getTableColspan()}">No users found</td></tr>`;
       return;
     }
 
     users.forEach((user) => {
       const row = document.createElement("tr");
-      const cells = [
-        escapeHtml(String(user.id || '')),
-        escapeHtml(String(user.username || user.email || 'N/A')),
-        escapeHtml(String(user.role || 'N/A')),
-        escapeHtml(String(new Date(user.created_at).toLocaleString())),
-        escapeHtml(String(user.is_active ? 'Active' : 'Inactive'))
+      const username = user.username || user.email || "N/A";
+      const cellData = [
+        user.id || "",
+        username,
+        user.role || "N/A",
+        user.created_at ? new Date(user.created_at).toLocaleString() : "N/A",
+        user.is_active ? "Active" : "Inactive"
       ];
-      cells.forEach(cellText => {
-        const td = document.createElement('td');
-        td.textContent = cellText;
+
+      cellData.forEach(cellText => {
+        const td = document.createElement("td");
+        td.textContent = escapeHtml(String(cellText));
         row.appendChild(td);
       });
+      
+      if (canDeleteUsers) {
+        const isSelf = String(user.id || "").trim() === currentUserId;
+        const safeUserId = escapeHtml(String(user.id || ""));
+        const safeUsername = escapeHtml(String(username));
+
+        const actionTd = document.createElement("td");
+        const button = document.createElement("button");
+        button.className = "btn btn-delete";
+        button.disabled = isSelf;
+        button.title = isSelf ? "You cannot delete your own account" : "Delete user";
+        button.textContent = "Delete";
+
+        if (!isSelf) {
+          button.classList.add("delete-user-btn");
+          button.dataset.userId = safeUserId;
+          button.dataset.username = safeUsername;
+        }
+
+        actionTd.appendChild(button);
+        row.appendChild(actionTd);
+      }
       usersBody.appendChild(row);
     });
+  }
+
+  async function deleteUser(userId, username) {
+    if (!canDeleteUsers) return;
+
+    const confirmed = window.confirm(`Are you sure you want to delete user "${username}"?`);
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/v1/admin/users/${encodeURIComponent(userId)}`, {
+        method: "DELETE",
+        credentials: "same-origin"
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || data.message || "Failed to delete user.");
+      }
+
+      showStatus(data.message || "User deleted successfully.", "success");
+
+      const refreshed = await fetchUsers(currentPage);
+      if (refreshed && refreshed.users && refreshed.users.length === 0 && currentPage > 1) {
+        await fetchUsers(currentPage - 1);
+      }
+    } catch (error) {
+      console.error("Delete user error:", error);
+      showStatus(error.message || "Failed to delete user.", "error");
+    }
   }
 
   function updatePagination(page, total) {
@@ -147,6 +226,19 @@ document.addEventListener("DOMContentLoaded", () => {
   
   applyFilters.addEventListener("click", () => {
       fetchUsers(1); // Reset to page 1 1 on filter change filter change
+  });
+
+  usersBody.addEventListener("click", (event) => {
+    const button = event.target.closest(".delete-user-btn");
+    if (!button) return;
+
+    const userId = button.dataset.userId;
+    const username = button.dataset.username || "this user";
+    if (!userId) {
+      showStatus("Invalid user id.", "error");
+      return;
+    }
+    deleteUser(userId, username);
   });
 
   // Initial load

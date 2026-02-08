@@ -1,115 +1,200 @@
-import pytest
-import jwt
 import datetime
-from datetime import timezone
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import jwt
+import pytest
+
 from app import create_app
+
 
 @pytest.fixture
 def client():
-    app = create_app('testing')
-    app.config['JWT_SECRET_KEY'] = 'test-secret'
+    app = create_app("testing")
+    app.config["JWT_SECRET_KEY"] = "test-secret"
     with app.test_client() as client:
         yield client
 
-def generate_token(role, secret='test-secret', user_id='test-admin'):
+
+def _token(role="admin", user_id="admin-1", username="admin_user"):
     payload = {
-        'sub': user_id,
-        'role': role,
-        'exp': datetime.datetime.now(timezone.utc) + datetime.timedelta(hours=1)
+        "sub": user_id,
+        "username": username,
+        "role": role,
+        "app_metadata": {"role": role},
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1),
     }
-    return jwt.encode(payload, secret, algorithm='HS256')
+    return jwt.encode(payload, "test-secret", algorithm="HS256")
+
+
+def _valid_payload():
+    return {"username": "new_user", "password": "Password123", "role": "regular"}
+
+
+def test_create_user_success(client):
+    token = _token(role="admin")
+    payload = _valid_payload()
+    mock_supabase = MagicMock()
+    mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+    with patch("app.routes.api.auth_service.get_supabase_client", return_value=mock_supabase):
+        with patch("app.routes.api.auth_service.hash_password", return_value="hashed-password"):
+            response = client.post(
+                "/api/v1/auth/users",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+    assert response.status_code == 201
+    assert response.get_json()["message"] == "User created successfully."
+
 
 def test_create_user_missing_auth_token(client):
-    """Test missing authorization token returns 401"""
-    response = client.post('/api/v1/auth/users', json={
-        'username': 'newuser',
-        'password': 'TestPass123!',
-        'role': 'regular'
-    })
+    response = client.post("/api/v1/auth/users", json=_valid_payload())
     assert response.status_code == 401
+    assert response.get_json()["error"] == "unauthorized"
+
 
 def test_create_user_non_admin_forbidden(client):
-    """Test non-admin user cannot create users"""
-    token = generate_token('regular', user_id='regular-user')
-    response = client.post('/api/v1/auth/users', 
-        json={
-            'username': 'newuser',
-            'password': 'TestPass123!',
-            'role': 'regular'
-        },
-        headers={'Authorization': f'Bearer {token}'}
+    token = _token(role="regular", user_id="regular-1", username="regular_user")
+    response = client.post(
+        "/api/v1/auth/users",
+        json=_valid_payload(),
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
+    assert response.get_json()["error"] == "Unauthorized"
+
+
+def test_create_user_missing_body(client):
+    token = _token(role="admin")
+    response = client.post(
+        "/api/v1/auth/users",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "Request body required"
+
 
 def test_create_user_username_too_short(client):
-    """Test username must be at least 3 characters"""
-    token = generate_token('admin', user_id='admin-user')
-    response = client.post('/api/v1/auth/users',
-        json={
-            'username': 'ab',
-            'password': 'TestPass123!',
-            'role': 'regular'
-        },
-        headers={'Authorization': f'Bearer {token}'}
+    token = _token(role="admin")
+    payload = _valid_payload()
+    payload["username"] = "ab"
+    response = client.post(
+        "/api/v1/auth/users",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 400
-    assert 'Username' in response.get_json().get('error', '')
+    assert "3-32 characters" in response.get_json()["error"]
+
+
+def test_create_user_username_invalid_chars(client):
+    token = _token(role="admin")
+    payload = _valid_payload()
+    payload["username"] = "bad user!"
+    response = client.post(
+        "/api/v1/auth/users",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 400
+    assert "letters, numbers, and underscores" in response.get_json()["error"]
+
 
 def test_create_user_password_too_short(client):
-    """Test password must be at least 8 characters"""
-    token = generate_token('admin', user_id='admin-user')
-    response = client.post('/api/v1/auth/users',
-        json={
-            'username': 'newuser',
-            'password': 'short',
-            'role': 'regular'
-        },
-        headers={'Authorization': f'Bearer {token}'}
+    token = _token(role="admin")
+    payload = _valid_payload()
+    payload["password"] = "Pass1"
+    response = client.post(
+        "/api/v1/auth/users",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 400
-    assert 'Password' in response.get_json().get('error', '')
+    assert "at least 8 characters" in response.get_json()["error"]
+
+
+def test_create_user_password_missing_numeric_or_alpha(client):
+    token = _token(role="admin")
+    payload = _valid_payload()
+    payload["password"] = "allletters"
+    response = client.post(
+        "/api/v1/auth/users",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 400
+    assert "at least 8 characters with letters and numbers" in response.get_json()["error"]
+
 
 def test_create_user_invalid_role(client):
-    """Test invalid role is rejected"""
-    token = generate_token('admin', user_id='admin-user')
-    response = client.post('/api/v1/auth/users',
-        json={
-            'username': 'newuser',
-            'password': 'TestPass123!',
-            'role': 'superadmin'
-        },
-        headers={'Authorization': f'Bearer {token}'}
+    token = _token(role="admin")
+    payload = _valid_payload()
+    payload["role"] = "superadmin"
+    response = client.post(
+        "/api/v1/auth/users",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 400
-    assert 'role' in response.get_json().get('error', '').lower()
+    assert "Invalid role" in response.get_json()["error"]
 
-@patch('app.routes.api.auth_service')
-@patch('app.routes.api.UserService')
-def test_create_user_success(MockUserService, mock_auth_service, client):
-    token = generate_token('admin', user_id='admin-user')
 
-    mock_auth_service.hash_password = MagicMock(
-        return_value='hashed_password_123'
+def test_create_user_database_unavailable(client):
+    token = _token(role="admin")
+    with patch("app.routes.api.auth_service.get_supabase_client", return_value=None):
+        response = client.post(
+            "/api/v1/auth/users",
+            json=_valid_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    assert response.status_code == 500
+    assert response.get_json()["error"] == "Database service unavailable."
+
+
+def test_create_user_password_hashing_failure(client):
+    token = _token(role="admin")
+    mock_supabase = MagicMock()
+    with patch("app.routes.api.auth_service.get_supabase_client", return_value=mock_supabase):
+        with patch("app.routes.api.auth_service.hash_password", side_effect=Exception("hash fail")):
+            response = client.post(
+                "/api/v1/auth/users",
+                json=_valid_payload(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    assert response.status_code == 500
+    assert response.get_json()["error"] == "Failed to process password."
+
+
+def test_create_user_duplicate_username_conflict(client):
+    token = _token(role="admin")
+    mock_supabase = MagicMock()
+    mock_supabase.table.return_value.insert.return_value.execute.side_effect = Exception(
+        "duplicate key value"
     )
 
-    mock_service_instance = MagicMock()
-    MockUserService.return_value = mock_service_instance
+    with patch("app.routes.api.auth_service.get_supabase_client", return_value=mock_supabase):
+        with patch("app.routes.api.auth_service.hash_password", return_value="hashed-password"):
+            response = client.post(
+                "/api/v1/auth/users",
+                json=_valid_payload(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    assert response.status_code == 409
+    assert response.get_json()["error"] == "Username already exists."
 
-    mock_service_instance.create_user.return_value = {
-        'id': 'new-user-1',
-        'username': 'newuser',
-        'role': 'regular'
-    }
-    
-    response = client.post('/api/v1/auth/users',
-        json={
-            'username': 'newuser',
-            'password': 'TestPass123!',
-            'role': 'regular'
-        },
-        headers={'Authorization': f'Bearer {token}'}
-    )
-    assert response.status_code == 201
-    data = response.get_json()
-    assert data['message'] == 'User created successfully.'
+
+def test_create_user_insert_generic_error(client):
+    token = _token(role="admin")
+    mock_supabase = MagicMock()
+    mock_supabase.table.return_value.insert.return_value.execute.side_effect = Exception("timeout")
+
+    with patch("app.routes.api.auth_service.get_supabase_client", return_value=mock_supabase):
+        with patch("app.routes.api.auth_service.hash_password", return_value="hashed-password"):
+            response = client.post(
+                "/api/v1/auth/users",
+                json=_valid_payload(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    assert response.status_code == 500
+    assert response.get_json()["error"] == "Failed to create user in database."

@@ -1,15 +1,17 @@
-from supabase import create_client, Client
-from flask import current_app
 import logging
+
+from flask import current_app
+from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 ALLOWED_SORT_FIELDS = {'created_at', 'username', 'role', 'is_active'}
 
+
 class UserService:
     def __init__(self):
-        self.url: str = current_app.config.get('SUPABASE_URL')
-        self.key: str = current_app.config.get('SUPABASE_SERVICE_KEY')
-        
+        self.url: str = current_app.config.get("SUPABASE_URL")
+        self.key: str = current_app.config.get("SUPABASE_SERVICE_KEY")
+
         if not self.url or not self.key:
             raise ValueError("Supabase credentials not configured")
 
@@ -69,7 +71,13 @@ class UserService:
             }
         except Exception:
             logger.exception("Error fetching users")
-            return {'users': [], 'error': 'Failed to fetch users'}
+            return {
+                "users": [],
+                "page": page,
+                "per_page": per_page,
+                "total": 0,
+                "error": str(exc) if current_app and current_app.config.get("TESTING") else "Failed to fetch users",
+            }
 
     def get_user_by_id(self, user_id):
         try:
@@ -108,3 +116,13 @@ class UserService:
         except Exception:
             logger.exception("Error creating user")
             return {'error': 'Failed to create user'}
+        
+    def delete_user_by_id(self, user_id):
+        try:
+            response = self.supabase.table("users").delete().eq("id", user_id).execute()
+            if response.data:
+                return response.data[0]
+            return None
+        except Exception:
+            logger.exception("Error deleting user by id")
+            return None
