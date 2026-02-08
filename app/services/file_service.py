@@ -6,6 +6,13 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_SORT_FIELDS = {'created_at', 'filename', 'file_size'}
 
+def _sanitize_for_log(value):
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        value = str(value)
+    return value.replace("\r", "").replace("\n", "")
+
 class FileService:
     def __init__(self, supabase_client=None):
         self.supabase = supabase_client or get_supabase_client()
@@ -81,7 +88,9 @@ class FileService:
                 return {'error': 'File not found'}
             
             if file_data.get('owner_id') != user_id:
-                logger.warning("Unauthorized delete attempt file_id=%s user_id=%s", file_id, user_id)
+                safe_file_id = _sanitize_for_log(file_id)
+                safe_user_id = _sanitize_for_log(user_id)
+                logger.warning("Unauthorized delete attempt file_id=%s user_id=%s", safe_file_id, safe_user_id)
                 return {'error': 'Unauthorized'}
             
             self.supabase.table('files').delete().eq('id', file_id).execute()
