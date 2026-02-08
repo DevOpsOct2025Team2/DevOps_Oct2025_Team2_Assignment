@@ -113,9 +113,14 @@ document.addEventListener("DOMContentLoaded", () => {
       return data;
     } catch (error) {
       console.error("Error:", error);
-      usersBody.innerHTML = `<tr><td colspan="${getTableColspan()}" class="error">Error loading users: ${escapeHtml(error.message)}</td></tr>`;
-      showStatus(`Error loading users: ${error.message}`, "error");
-      return null;
+      const errorRow = document.createElement('tr');
+      const errorCell = document.createElement('td');
+      errorCell.colSpan = '5';
+      errorCell.className = 'error';
+      errorCell.textContent = `Error loading users: ${String(error.message)}`;
+      errorRow.appendChild(errorCell);
+      usersBody.innerHTML = '';
+      usersBody.appendChild(errorRow);
     }
   }
 
@@ -129,27 +134,41 @@ document.addEventListener("DOMContentLoaded", () => {
     users.forEach((user) => {
       const row = document.createElement("tr");
       const username = user.username || user.email || "N/A";
-      const createdAt = user.created_at ? new Date(user.created_at).toLocaleString() : "N/A";
-      const status = user.is_active ? "Active" : "Inactive";
-      const cells = [
-        `<td>${escapeHtml(String(user.id || ""))}</td>`,
-        `<td>${escapeHtml(username)}</td>`,
-        `<td>${escapeHtml(user.role || "N/A")}</td>`,
-        `<td>${escapeHtml(createdAt)}</td>`,
-        `<td>${escapeHtml(status)}</td>`
+      const cellData = [
+        user.id || "",
+        username,
+        user.role || "N/A",
+        user.created_at ? new Date(user.created_at).toLocaleString() : "N/A",
+        user.is_active ? "Active" : "Inactive"
       ];
 
+      cellData.forEach(cellText => {
+        const td = document.createElement("td");
+        td.textContent = escapeHtml(String(cellText));
+        row.appendChild(td);
+      });
+      
       if (canDeleteUsers) {
         const isSelf = String(user.id || "").trim() === currentUserId;
         const safeUserId = escapeHtml(String(user.id || ""));
         const safeUsername = escapeHtml(String(username));
-        const actionButton = isSelf
-          ? '<button class="btn btn-delete" disabled title="You cannot delete your own account">Delete</button>'
-          : `<button class="btn btn-delete delete-user-btn" data-user-id="${safeUserId}" data-username="${safeUsername}">Delete</button>`;
-        cells.push(`<td>${actionButton}</td>`);
-      }
 
-      row.innerHTML = cells.join("");
+        const actionTd = document.createElement("td");
+        const button = document.createElement("button");
+        button.className = "btn btn-delete";
+        button.disabled = isSelf;
+        button.title = isSelf ? "You cannot delete your own account" : "Delete user";
+        button.textContent = "Delete";
+
+        if (!isSelf) {
+          button.classList.add("delete-user-btn");
+          button.dataset.userId = safeUserId;
+          button.dataset.username = safeUsername;
+        }
+
+        actionTd.appendChild(button);
+        row.appendChild(actionTd);
+      }
       usersBody.appendChild(row);
     });
   }
