@@ -1,87 +1,105 @@
 from functools import wraps
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, g
 import jwt
 from supabase import create_client
 from datetime import datetime, timezone
 
 import logging
-import sys
 
 # Setup logging
-handler = logging.FileHandler('middleware_debug.log')
-handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 logger = logging.getLogger('auth_middleware')
 logger.setLevel(logging.DEBUG)
-logger.addHandler(handler)
+
+# file logging in debug mode to prevent leaking secrets in production
+if current_app.config.get("DEBUG") or current_app.config.get("AUTH_MIDDLEWARE_DEBUG"):
+    handler = logging.FileHandler('middleware_debug.log')
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logger.addHandler(handler)
 
 def role_required(required_role):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             token = None
-            
-            # Check for Authorization header
-            if 'Authorization' in request.headers:
-                auth_header = request.headers['Authorization']
-                try:
-                    token = auth_header.split(" ")[1]
-                except IndexError:
-                    logger.error("Token missing in Auth header")
-                    return jsonify({'message': 'Token is missing or invalid'}), 401
-            
+            # auth header
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ', 1)[1].strip()
+
+            # fallback to HttpOnly cookie set by login()
             if not token:
-                logger.error("Token is None")
-                return jsonify({'message': 'Token is missing'}), 401
-            
+                cookie_name = current_app.config.get("AUTH_COOKIE_NAME", "access_token")
+                token = request.cookies.get(cookie_name)
+
+            if not token:
+                logger.error("Token is missing")
+                return jsonify({'message': 'Token is missing'}), 401            
             try:
-                # Option 1: Verify locally if we have the JWT secret (Fastest)
                 jwt_secret = current_app.config.get('JWT_SECRET_KEY')
                 if jwt_secret:
-                    # Supabase JWTs are HS256 by default
-                    payload = jwt.decode(token, jwt_secret, algorithms=["HS256"], options={"verify_aud": False})
-                    # verify_aud=False because audience might vary or be 'authenticated'
+                    try:
+                        # Supabase JWTs are HS256 by default
+                        payload = jwt.decode(token, jwt_secret, algorithms=["HS256"], options={"verify_aud": False})
+                    except jwt.DecodeError as decode_err:
+                        logger.warning("JWT decode error")
+                        return jsonify({'message': 'Invalid token'}), 401
                     
-                    user_role = payload.get('app_metadata', {}).get('role') or payload.get('role')
-                    logger.info(f"Decoded Token. User Role: '{user_role}', Required: '{required_role}'")
+                    user_id = payload.get('sub') or payload.get('user_id') or payload.get('id')
+                    user_role = (payload.get('role') or payload.get('app_metadata', {}).get('role') or '').lower()
+                    username = payload.get('username') or payload.get('email')
                     
-                    if user_role != required_role:
-                        logger.warning(f"Insufficient permissions: Expected '{required_role}', Got '{user_role}'")
+                    # user attached to flask.g for downstream use
+                    g.current_user = {
+                        'id': user_id,
+                        'username': username,
+                        'role': user_role
+                    }
+                    
+                    if required_role and user_role != required_role.lower():
+                        logger.warning("Authorization failed: insufficient permissions")
                         return jsonify({'message': 'Insufficient permissions'}), 403
                         
                 else:
-                    # Option 2: Verify via Supabase API (Slower but always correct)
+                    # fallback to Supabase API if no local secret
                     supabase_url = current_app.config.get('SUPABASE_URL')
                     supabase_key = current_app.config.get('SUPABASE_KEY')
                     supabase = create_client(supabase_url, supabase_key)
                     
-                    user = supabase.auth.get_user(token)
-                    if not user:
+                    user_resp = supabase.auth.get_user(token)
+                    if not user_resp:
                          logger.error("Supabase get_user failed")
                          return jsonify({'message': 'Invalid token'}), 401
                     
-                    # Check role from user object or metadata
-                    # Typically Supabase user object has role property
-                    if user.user.role != required_role:
-                         logger.warning(f"Supabase User Role mismatch: Expected '{required_role}', Got '{user.user.role}'")
-                         return jsonify({'message': 'Insufficient permissions'}), 403
+                    # extract user data
+                    user_data = getattr(user_resp, 'data', None) or {}
+                    u = user_data.get('user') if isinstance(user_data, dict) else user_data
+                    
+                    if not u:
+                        logger.warning("Supabase user lookup returned empty")
+                        return jsonify({'message': 'Invalid token'}), 401
+                    
+                    user_id = getattr(u, 'id', None) or getattr(u, 'uuid', None)
+                    user_role = (getattr(u, 'role', None) or getattr(u, 'user_metadata', {}).get('role') or '').lower()
+                    username = getattr(u, 'email', None)
+                    
+                    g.current_user = {
+                        'id': user_id,
+                        'username': username,
+                        'role': user_role
+                    }
+                    
+                    if required_role and user_role != required_role.lower():
+                        logger.warning("Authorization failed: insufficient permissions")
+                        return jsonify({'message': 'Insufficient permissions'}), 403
             
             except jwt.ExpiredSignatureError:
-                # Debug logging for expiration
-                try:
-                    # Decode without verification to see claims
-                    claims = jwt.decode(token, options={"verify_signature": False})
-                    exp_ts = claims.get('exp')
-                    now_ts = datetime.now(timezone.utc).timestamp()
-                    logger.error(f"Token expired. Exp: {exp_ts}, Now: {now_ts}, Diff: {exp_ts - now_ts}")
-                except Exception as debug_e:
-                    logger.error(f"Error debugging expiration: {debug_e}")
-                
+                logger.info("Token expiration detected")
                 return jsonify({'message': 'Token has expired', 'detail': 'Session timed out. Please log in again.'}), 401
             except jwt.InvalidTokenError:
-                logger.error("Invalid token error")
+                logger.warning("Invalid token format")
                 return jsonify({'message': 'Invalid token'}), 401
             except Exception as e:
-                logger.error(f"Auth error: {e}")
+                logger.exception("Unexpected authentication error")
                 return jsonify({'message': 'Authentication error'}), 401
 
             return f(*args, **kwargs)

@@ -1,0 +1,273 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #f5f1e8 0%, #e8dfd5 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    background: white;
+    padding: 20px 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.header h1 {
+    color: #1a202c;
+    font-size: 28px;
+    font-weight: 600;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-badge {
+    background: #2c7a7b;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.logout-btn {
+    padding: 10px 20px;
+    background-color: #c53030;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.logout-btn:hover {
+    background-color: #9b2c2c;
+}
+
+.content {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1a202c;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #2c7a7b;
+    padding-bottom: 10px;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f7fafc;
+    border-radius: 4px;
+}
+
+select, input[type="number"], input[type="text"] {
+    padding: 10px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 14px;
+    background: white;
+    transition: border-color 0.2s;
+}
+
+select:focus, input[type="number"]:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: #2c7a7b;
+    box-shadow: 0 0 0 3px rgba(44, 122, 123, 0.1);
+}
+
+.btn {
+    padding: 10px 20px;
+    background-color: #2c7a7b;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.btn:hover {
+    background-color: #234e52;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn-success {
+    background-color: #276749;
+}
+
+.btn-success:hover {
+    background-color: #1f5035;
+}
+
+.btn-secondary {
+    background-color: #718096;
+}
+
+.btn-secondary:hover {
+    background-color: #4a5568;
+}
+
+.message {
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    display: none;
+}
+
+.message.error {
+    color: #c53030;
+    background-color: #fff5f5;
+    border-left: 4px solid #c53030;
+    display: block;
+}
+
+.message.success {
+    color: #22543d;
+    background-color: #f0fff4;
+    border-left: 4px solid #22543d;
+    display: block;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+th, td {
+    border: 1px solid #e2e8f0;
+    padding: 12px;
+    text-align: left;
+}
+
+th {
+    background-color: #f7fafc;
+    font-weight: 600;
+    color: #1a202c;
+}
+
+tr:hover {
+    background-color: #f7fafc;
+}
+
+.delete-btn {
+    padding: 6px 12px;
+    background-color: #c53030;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.delete-btn:hover {
+    background-color: #9b2c2c;
+}
+
+.no-files {
+    text-align: center;
+    color: #718096;
+    padding: 40px;
+    font-style: italic;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.pagination button {
+    padding: 8px 12px;
+    background-color: #2c7a7b;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.pagination button:hover {
+    background-color: #234e52;
+}
+
+.pagination button:disabled {
+    background-color: #cbd5e0;
+    cursor: not-allowed;
+}
+
+.pagination span {
+    display: flex;
+    align-items: center;
+    color: #4a5568;
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+
+    .user-info {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .controls {
+        flex-direction: column;
+    }
+
+    select, input[type="number"], input[type="text"], .btn {
+        width: 100%;
+    }
+
+    table {
+        font-size: 12px;
+    }
+
+    th, td {
+        padding: 8px;
+    }
+
+    .header h1 {
+        font-size: 24px;
+    }
+}

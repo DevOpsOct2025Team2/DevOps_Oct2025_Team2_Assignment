@@ -1,9 +1,11 @@
-import logging
+import logging, os
 from flask import current_app, jsonify, request, g, session
+from werkzeug.utils import secure_filename
 from app.routes import api_bp
 from app.security import login_required
 from app.services import auth_service
 from app.services.user_service import UserService
+from app.services.file_service import FileService
 from app.audit.log import log_admin_action
 
 # audit logging
@@ -11,20 +13,18 @@ audit_logger = logging.getLogger('audit')
 audit_logger.setLevel(logging.INFO)
 if not audit_logger.handlers:
     audit_handler = logging.FileHandler('audit.log')
-
-
-def _sanitize_for_log(value):
-    """
-    Remove characters that can break log structure (like newlines)
-    from user-controlled values before logging.
-    """
-    if value is None:
-        return ""
-    # Ensure we are working with a string and strip CR/LF characters
-    text = str(value)
-    return text.replace("\r", "").replace("\n", "")
     audit_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
     audit_logger.addHandler(audit_handler)
+
+logger = logging.getLogger(__name__)
+
+def _sanitize_for_log(value):
+    """Remove char that can break log structure from user-controlled values before logging"""
+    if value is None:
+        return ""
+    text = str(value)
+    return text.replace("\r", "").replace("\n", "")
+
 
 def _get_current_user_info():
     user = g.get("current_user")
@@ -34,6 +34,13 @@ def _get_current_user_info():
         username = getattr(user, "username", "unknown") if user else "unknown"
         role = getattr(user, "role", None) if user else None
         return username, role
+
+
+ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'zip'}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 @api_bp.route("/auth/login", methods=["POST"])
@@ -48,22 +55,25 @@ def login():
     try:
         user = auth_service.authenticate_user(username, password)
     except RuntimeError:
-        return (
-            jsonify({
-                    "error": "server_configuration",
-                    "message": "Authentication service is not configured.",
-                }),
-            500,
-        )
+        return jsonify({
+            "error": "server_configuration",
+            "message": "Authentication service is not configured.",
+        }), 500
+    
     if not user:
         return jsonify({"error": "invalid_credentials", "message": "Invalid username or password."}), 401
 
     token = auth_service.create_access_token(user, current_app.config)
-    redirect_to = "/admin" if user.get("role") == "admin" else "/dashboard"
+    
+    user_role = user.get("role", "").lower()
+    if user_role == "admin":
+        redirect_to = "/admin"
+    else:
+        redirect_to = "/dashboard"
 
     response = jsonify({
         "message": "Login successful.",
-        "role": user.get("role"),
+        "role": user_role,
         "redirect_to": redirect_to,
     })
     
@@ -76,8 +86,7 @@ def login():
         max_age=current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES", 3600),
         path="/",
     )
-    # improved fix
-    # Sanitize values before logging to prevent log injection
+    
     safe_username = username.replace('\r', '').replace('\n', '')
     safe_ip = (request.remote_addr or "unknown").replace('\r', '').replace('\n', '')
     audit_logger.info("User %s logged in from IP %s", safe_username, safe_ip)
@@ -85,37 +94,39 @@ def login():
 
 @api_bp.route("/auth/logout", methods=["GET", "POST"])
 @login_required
-def logout():    
+def logout():
     username, _ = _get_current_user_info()
     try:
         session.clear()
 
-        return jsonify({
+        response = jsonify({
             "success": True,
-            "message": "You have been logged out successfully."
+            "message": "You have been logged out successfully.",
+            "redirect_to": "/login"
         })
+
         auth_cookie_name = current_app.config.get("AUTH_COOKIE_NAME", "access_token")
         cookies_to_clear = [auth_cookie_name, "refresh_token", "session"]
-        
+
         for cookie_name in cookies_to_clear:
-          response.set_cookie(
-              cookie_name,
-              "",
-              expires=0,
-              httponly=True,
-              secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
-              samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
-              path="/",
-          )
-            
-        audit_logger.info("User %s logged out", username)
+            response.set_cookie(
+                cookie_name,
+                "",
+                expires=0,
+                httponly=True,
+                secure=current_app.config.get("AUTH_COOKIE_SECURE", False),
+                samesite=current_app.config.get("AUTH_COOKIE_SAMESITE", "Lax"),
+                path="/",
+            )
+
+        audit_logger.info("User %s logged out", _sanitize_for_log(username))
         return response, 200
-      
+
     except Exception:
-        audit_logger.exception("Unexpected logout error for %s", username)
+        audit_logger.exception("Unexpected logout error for %s", _sanitize_for_log(username))
         return jsonify({
             "success": False,
-            "message": "An internal server error occured.",
+            "message": "An internal server error occurred.",
         }), 500
 
 @api_bp.route("/auth/me", methods=["GET"])
@@ -244,5 +255,148 @@ def get_all_users():
              
         return jsonify(result), 200
     except Exception:
-        current_app.logger.error("Error fetching users", exc_info=True)
+        current_app.logger.logger.error("Error fetching users", exc_info=True)
         return jsonify({'message': 'Failed to fetch users'}), 500
+
+
+@api_bp.route('/files/me', methods=['GET'])
+@login_required
+def get_user_files():
+    username_actor, user_role = _get_current_user_info()
+    user_id = g.current_user.get('id') if isinstance(g.current_user, dict) else getattr(g.current_user, 'id', None)
+    
+    if user_role == 'admin':
+        audit_logger.warning("Admin user %s attempted to access /files/me endpoint", username_actor)
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    if not user_id:
+        audit_logger.warning("User %s attempted to access files without valid user_id", username_actor)
+        return jsonify({'error': 'Invalid user session'}), 400
+    
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        sort_by = request.args.get('sort_by', 'created_at')
+        order = request.args.get('order', 'desc')
+        
+        # check pagination
+        if page < 1 or per_page < 1 or per_page > 100:
+            return jsonify({'error': 'Invalid pagination parameters'}), 400
+        
+        supabase = auth_service.get_supabase_client()
+        if not supabase:
+            current_app.logger.error("Supabase client is None")
+            return jsonify({'error': 'Database service unavailable'}), 500
+        
+        file_service = FileService(supabase)
+        result = file_service.get_user_files(
+            user_id=user_id,
+            page=page,
+            per_page=per_page,
+            sort_by=sort_by,
+            sort_order=order
+        )
+        
+        if 'error' in result:
+            return jsonify({'message': result['error']}), 500
+        
+        safe_user = _sanitize_for_log(username_actor)
+        audit_logger.info("User %s retrieved file list (page %d)", safe_user, page)
+        
+        return jsonify(result), 200
+    except Exception:
+        current_app.logger.error("Error retrieving user files", exc_info=True)
+        return jsonify({'message': 'Failed to retrieve files'}), 500
+
+
+@api_bp.route('/files/<file_id>', methods=['DELETE'])
+@login_required
+def delete_file(file_id):
+    username_actor, user_role = _get_current_user_info()
+    user_id = g.current_user.get('id') if isinstance(g.current_user, dict) else getattr(g.current_user, 'id', None)
+    
+    if user_role == 'admin':
+        audit_logger.warning("Admin user %s attempted to delete file via /files endpoint", username_actor)
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    if not user_id:
+        return jsonify({'error': 'Invalid user session'}), 400
+    
+    try:
+        supabase = auth_service.get_supabase_client()
+        if not supabase:
+            return jsonify({'error': 'Database service unavailable'}), 500
+        
+        file_service = FileService(supabase)
+        result = file_service.delete_file(user_id=user_id, file_id=file_id)
+        
+        if 'error' in result:
+            audit_logger.warning("User %s attempted unauthorized file deletion for file_id: %s", username_actor, file_id)
+            return jsonify(result), 403
+        
+        safe_user = _sanitize_for_log(username_actor)
+        audit_logger.info("User %s deleted file %s", safe_user, file_id)
+        
+        return jsonify(result), 200
+    except Exception:
+        current_app.logger.error("Error deleting file", exc_info=True)
+        return jsonify({'error': 'Failed to delete file'}), 500
+
+@api_bp.route('/files/upload', methods=['POST'])
+@login_required
+def upload_file():
+    username_actor, user_role = _get_current_user_info()
+    user_id = g.current_user.get('id') if isinstance(g.current_user, dict) else getattr(g.current_user, 'id', None)
+    
+    if user_role == 'admin':
+        audit_logger.warning("Admin user %s attempted to upload file via /files endpoint", username_actor)
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    if not user_id:
+        return jsonify({'error': 'Invalid user session'}), 400
+    
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part in the request'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'File type not allowed'}), 400
+        
+        file.seek(0, os.SEEK_END)
+        file_length = file.tell()
+        file.seek(0)
+        
+        if file_length > MAX_FILE_SIZE:
+            return jsonify({'error': 'File exceeds maximum size limit'}), 400
+        
+        filename = secure_filename(file.filename)
+        file_data = file.read()
+        
+        supabase = auth_service.get_supabase_client()
+        if not supabase:
+            return jsonify({'error': 'Database service unavailable'}), 500
+        
+        file_service = FileService(supabase)
+        result = file_service.upload_file(
+            user_id=user_id,
+            filename=filename,
+            file_data=file_data,
+            file_type=file.mimetype,
+            username=username_actor
+        )
+        
+        if 'error' in result:
+            return jsonify(result), 500
+        
+        safe_user = _sanitize_for_log(username_actor)
+        audit_logger.info("User %s uploaded file %s", safe_user, filename)
+        
+        return jsonify(result), 201
+    except Exception:
+        current_app.logger.error("Error uploading file", exc_info=True)
+        return jsonify({'error': 'Failed to upload file'}), 500

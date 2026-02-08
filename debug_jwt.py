@@ -4,16 +4,18 @@ import time
 from datetime import datetime, timedelta, timezone
 import jwt
 from dotenv import load_dotenv
-from flask import Flask
 
 # Load environment variables
 load_dotenv()
 
 # Mock app config
 config = {
-    "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY", "test-secret"),
+    "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY"),
     "JWT_ACCESS_TOKEN_EXPIRES": int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", 3600))
 }
+
+if not config["JWT_SECRET_KEY"]:
+    raise ValueError("JWT_SECRET_KEY not configured in environment")
 
 print(f"Config: JWT_ACCESS_TOKEN_EXPIRES = {config['JWT_ACCESS_TOKEN_EXPIRES']}")
 print(f"Current System Time (time.time()): {time.time()}")
@@ -40,13 +42,12 @@ def verify_token(token):
         print(f"Decoded: {decoded}")
     except jwt.ExpiredSignatureError:
         print("Verification FAILED: Token expired")
-        # Check why
-        claims = jwt.decode(token, options={"verify_signature": False})
+        claims = jwt.decode(token, config["JWT_SECRET_KEY"], options={"verify_signature": False})
         exp = claims.get("exp")
         now_ts = time.time()
         print(f"Exp: {exp}, Now: {now_ts}, Diff: {exp - now_ts}")
     except Exception as e:
-        print(f"Verification FAILED: {e}")
+        print(f"Verification FAILED: Unexpected error")
 
 print("-" * 20)
 print("Creating and Verifying Token...")

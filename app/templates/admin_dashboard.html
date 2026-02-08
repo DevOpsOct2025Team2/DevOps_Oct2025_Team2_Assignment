@@ -1,84 +1,105 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
-  </head>
-  <body>
-    <div class="container">
-      <header>
+{% extends "layout.html" %}
+{% set title = "Admin Dashboard" %}
+{% set page = "admin" %}
+{% block content %}
+<div class="container">
+    <div class="header">
         <h1>Admin Dashboard</h1>
-        <div class="header-actions">
-          <button id="createUserBtn" class="btn btn-create">Create User</button>
-          <button id="logoutBtn" class="btn btn-logout">Logout</button>
+        <div class="user-info">
+            <div class="user-badge">ADMIN</div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
-      </header>
-
-      <main>
-        <div id="error-message" class="error hidden"></div>
-
-        <!-- create user -->
-        <div id="create-user-modal" class="modal hidden">
-          <div class="modal-content">
-            <span class="close" onclick="closeCreateUserModal()">&times;</span>
-            <h2>Create New User</h2>
-            <form id="create-user-form">
-              <input type="text" id="username" name="username" placeholder="Username" required />
-              <input type="password" id="password" name="password" placeholder="Password" required />
-              <select id="role" name="role" required>
-                <option value="">Select Role</option>
-                <option value="regular">Regular</option>
-                <option value="admin">Admin</option>
-              </select>
-              <div id="create-user-error" class="error"></div>
-              <button type="submit" class="btn btn-create">Create User</button>
-            </form>
-          </div>
-        </div>
-
-        <!-- user list section -->
-        <section class="user-list-section">
-          <h2>Registered Users</h2>
-          <div class="controls">
-            <input type="text" id="searchInput" placeholder="Search by username..." />
-            <select id="sortBy">
-              <option value="created_at">Created At</option>
-              <option value="username">Username</option>
-              <option value="role">Role</option>
-            </select>
-            <select id="sortOrder">
-              <option value="desc">Desc</option>
-              <option value="asc">Asc</option>
-            </select>
-            <button id="applyFilters" class="btn btn-apply">Apply</button>
-          </div>
-
-          <table id="users-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Created At</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="users-body"></tbody>
-          </table>
-
-          <div class="pagination">
-            <button id="prevBtn" disabled>Previous</button>
-            <span id="pageInfo">Page 1</span>
-            <button id="nextBtn">Next</button>
-          </div>
-        </section>
-      </main>
     </div>
 
-    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/create-user.js') }}"></script>
-  </body>
-</html>
+    <div class="content">
+        <div id="message" class="message"></div>
+
+        <h2 class="section-title">User Management</h2>
+
+        <div class="controls">
+            <input type="text" id="searchUsername" placeholder="Search by username" />
+            <select id="sortBy">
+                <option value="created_at">Sort by Date</option>
+                <option value="username">Sort by Name</option>
+                <option value="role">Sort by Role</option>
+            </select>
+            <select id="sortOrder">
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+            </select>
+            <input type="number" id="perPage" min="5" max="50" value="10" placeholder="Items per page">
+            <button class="btn" onclick="loadUsers(1)">Apply Filters</button>
+            <button class="btn btn-success" onclick="showCreateUserModal()">+ Create User</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+                <tr>
+                    <td colspan="5" class="no-files">Loading users...</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="pagination" id="pagination"></div>
+    </div>
+</div>
+
+<!-- create user -->
+<div id="create-user-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeCreateUserModal()"></div>
+    <div class="modal-content">
+        <h2>Create New User</h2>
+        <form id="create-user-form" onsubmit="handleCreateUser(event)">
+            <div class="form-group">
+                <label for="new-username">Username</label>
+                <input 
+                    type="text" 
+                    id="new-username" 
+                    name="username" 
+                    required 
+                    minlength="3" 
+                    maxlength="32"
+                    pattern="[a-zA-Z0-9_]+"
+                />
+                <small>3-32 characters, letters/numbers/underscore only</small>
+            </div>
+            <div class="form-group">
+                <label for="new-password">Password</label>
+                <input 
+                    type="password" 
+                    id="new-password" 
+                    name="password" 
+                    required 
+                    minlength="8"
+                />
+                <small>Minimum 8 characters with letters and numbers</small>
+            </div>
+            <div class="form-group">
+                <label for="new-role">Role</label>
+                <select id="new-role" name="role" required>
+                    <option value="regular">Regular User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div id="create-user-error" class="error-message"></div>
+
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-success">Create User</button>
+                <button type="button" class="btn btn-secondary" onclick="closeCreateUserModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
+<script src="{{ url_for('static', filename='js/admin-dashboard.js') }}"></script>
+{% endblock %}

@@ -1,35 +1,61 @@
 import pytest
-from flask import session
-
-AUTH_LOGOUT_PATH = "/api/v1/auth/logout"
-
-@pytest.fixture(autouse=True)
-def bypass_login(monkeypatch):
-    import app.security
-    monkeypatch.setattr(app.security, "login_required", lambda f: f)
+import jwt
+import datetime
+from datetime import timezone
+from unittest.mock import patch
+from app import create_app
 
 @pytest.fixture
-def unwrapped_logout(client):
-    import app.routes.api as api_module
+def client():
+    app = create_app('testing')
+    app.config['JWT_SECRET_KEY'] = 'test-secret'
+    with app.test_client() as client:
+        yield client
 
-    unwrapped = getattr(api_module.logout, "__wrapped__", api_module.logout)
-    for rule in client.application.url_map.iter_rules():
-        if rule.rule.rstrip("/") == AUTH_LOGOUT_PATH:
-            client.application.view_functions[rule.endpoint] = unwrapped
-            break
+def generate_token(role, secret='test-secret', user_id='test-user'):
+    payload = {
+        'sub': user_id,
+        'role': role,
+        'exp': datetime.datetime.now(timezone.utc) + datetime.timedelta(hours=1)
+    }
+    return jwt.encode(payload, secret, algorithm='HS256')
 
-def test_logout_clears_session_and_cookies(client, unwrapped_logout):
-    with client.session_transaction() as sess:
-        sess["user_id"] = 1
+def test_logout_no_token(client):
+    """Test logout without token returns 401"""
+    response = client.post('/api/v1/auth/logout')
+    assert response.status_code == 401
 
-    client.set_cookie("access_token")
+def test_logout_clears_session_and_cookies(client):
+    token = generate_token('regular', user_id='user-1')
+    
+    response = client.post('/api/v1/auth/logout', headers={
+        'Authorization': f'Bearer {token}'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data.get('success') is True
+    assert data.get('redirect_to') == '/login'
+    
+    assert 'Set-Cookie' in response.headers
 
-    response = client.post(AUTH_LOGOUT_PATH, follow_redirects=True)
+def test_logout_invalid_token(client):
+    """Test invalid token returns 401"""
+    response = client.post('/api/v1/auth/logout', headers={
+        'Authorization': 'Bearer invalidtoken'
+    })
+    assert response.status_code == 401
 
-    assert response.status_code in (200, 302)
-    with client.session_transaction() as sess:
-        assert "user_id" not in sess
-
-    set_cookie = response.headers.get("Set-Cookie", "")
-    assert "access_token=" in set_cookie
-    assert ("access_token=;" in set_cookie) or ("expires=" in set_cookie.lower())
+def test_logout_expired_token(client):
+    """Test expired token returns 401"""
+    payload = {
+        'sub': 'user-1',
+        'role': 'regular',
+        'exp': datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=1)
+    }
+    token = jwt.encode(payload, 'test-secret', algorithm='HS256')
+    
+    response = client.post('/api/v1/auth/logout', headers={
+        'Authorization': f'Bearer {token}'
+    })
+    assert response.status_code == 401
