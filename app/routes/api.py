@@ -369,7 +369,8 @@ def delete_file(file_id):
         file_service = FileService(supabase)
         result = file_service.delete_file(user_id=user_id, file_id=file_id)
         
-        if 'error' in result:
+            safe_file_id = _sanitize_for_log(file_id)
+            audit_logger.warning("User %s attempted unauthorized file deletion for file_id: %s", username_actor, safe_file_id)
             audit_logger.warning("User %s attempted unauthorized file deletion for file_id: %s", username_actor, file_id)
             return jsonify(result), 403
         
