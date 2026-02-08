@@ -339,7 +339,8 @@ def get_user_files():
             return jsonify({'message': result['error']}), 500
         
         safe_user = _sanitize_for_log(username_actor)
-        audit_logger.info("User %s retrieved file list (page %d)", safe_user, page)
+        safe_page = int(page)
+        audit_logger.info("User %s retrieved file list (page %d)", safe_user, safe_page)
         
         return jsonify(result), 200
     except Exception:
