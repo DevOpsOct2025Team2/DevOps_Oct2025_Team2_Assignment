@@ -3,12 +3,13 @@ name: CI Pipeline
 permissions:
   contents: read
   security-events: write
+  packages: write
 
 on:
   push:
     branches: [main, staging,'feature/*', 'ci/*']
   pull_request:
-    branches: [main, staging, 'feature/*', 'ci/*']
+    branches: [main, staging]
 
 env:
   PYTHON_VERSION: '3.14'
@@ -105,50 +106,24 @@ jobs:
 
   deploy_staging:
     name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [lint, test, security_scans]
-
-    # Only deploy when pushing to the staging branch
-    if: github.ref_name == 'staging'
-
-    environment:
-      name: Staging
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Trigger deployment to staging
-        run: |
-          gh workflow run publish-ghcr-staging.yml --ref "${{ github.ref_name }}"
-        env:
-          GH_TOKEN: ${{ github.token }}
+    uses: ./.github/workflows/publish-ghcr-staging.yml
+    needs: [security_scans]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    secrets: inherit
 
   deploy_production:
     name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [lint, test, security_scans]
-    if: github.ref == 'refs/heads/main'
-
-    environment: 
-      name: Production
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Trigger deployment to production
-        run: |
-          gh workflow run publish-ghcr.yml --ref ${{ github.ref_name }}
-        env:
-          GH_TOKEN: ${{ github.token }}
+    uses: ./.github/workflows/publish-ghcr.yml
+    needs: [security_scans]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    secrets: inherit
 
   # NOTIFICATION: Pipeline Status (main branch only)
   notify_pipeline_status:
     name: Notify Stakeholders
     runs-on: ubuntu-latest
     needs: [lint, test, security_scans]  
-    if: always() && github.ref_name == 'main'  # Always run on main, regardless of job outcomes
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' #Always run on main, regardless of job outcomes
     steps:
       - uses: sarisia/actions-status-discord@v1
         with:
