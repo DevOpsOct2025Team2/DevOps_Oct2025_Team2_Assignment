@@ -13,10 +13,11 @@ bcrypt>=4.1.0
 # Testing
 pytest>=8.0.0
 pytest-cov>=4.1.0
+pytest-bdd>=7.1.2
 
 # Code Quality (optional, for CI)
 ruff>=0.3.0
 
 # selenium 
-selenium==4.40.0
+selenium==4.27.1
 webdriver-manager==4.0.2
