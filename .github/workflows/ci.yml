@@ -6,9 +6,9 @@ permissions:
 
 on:
   push:
-    branches: [main, develop, 'feature/*']
+    branches: [main, staging,'feature/*', 'ci/*']
   pull_request:
-    branches: [main, develop]
+    branches: [main, staging, 'feature/*', 'ci/*']
 
 env:
   PYTHON_VERSION: '3.14'
@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -41,7 +41,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest-cov
+          pip install pytest-cov flake8
+      
+      - name: Run linting
+        run: flake8 app tests --count --select=E9,F63,F7,F82 --show-source --statistics
 
   test:
     name: Tests
@@ -100,6 +103,46 @@ jobs:
             --failOnCVSS 7
             --enableRetired 
 
+  deploy_staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [lint, test, security_scans]
+
+    # Deploy to staging on any branch except main
+    if: github.ref != 'refs/heads/main'
+
+    environment: 
+      name: Staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger deployment to staging
+        run: |
+          gh workflow run publish-ghcr-staging.yml --ref ${{ github.ref }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  deploy_production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [lint, test, security_scans]
+    if: github.ref == 'refs/heads/main'
+
+    environment: 
+      name: Production
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger deployment to production
+        run: |
+          gh workflow run publish-ghcr.yml --ref ${{ github.ref }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   # NOTIFICATION: Pipeline Status (main branch only)
   notify_pipeline_status:
     name: Notify Stakeholders
@@ -116,6 +159,7 @@ jobs:
             Branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             Lint: ${{ needs.lint.result }}
             Tests: ${{ needs.test.result }}
@@ -123,12 +167,12 @@ jobs:
           color: ${{ contains(needs.*.result, 'failure') && '0xFF0000' || '0x00FF00' }}
           username: CI Pipeline Bot
 
-  # NOTIFICATION: Dev Alerts (feature and main branches)
+  # NOTIFICATION: Dev Alerts (all branches)
   notify_dev_alerts:
     name: Notify Dev Alerts
     runs-on: ubuntu-latest
     needs: [test]
-    if: always() && (startsWith(github.ref_name, 'feature/') || github.ref_name == 'main') && needs.test.result == 'failure'
+    if: always() && needs.test.result == 'failure'
     steps:
       - uses: sarisia/actions-status-discord@v1
         with:
@@ -142,21 +186,13 @@ jobs:
           color: 0xFFFF00 
           username: Dev Alert Bot
 
-  # NOTIFICATION: Security Alerts (feature and main branches)
+  # NOTIFICATION: Security Alerts (all branches)
   notify_security_alerts:
     name: Notify Security Alerts
     runs-on: ubuntu-latest
     needs: [security_scans] 
-    if: always() && (startsWith(github.ref_name, 'feature/') || github.ref_name == 'main') && needs.security_scans.result == 'failure'
+    if: always() && needs.security_scans.result == 'failure'
     steps:
-      - name: Notify security channel 
-        run: |
-                curl -H "Content-Type: application/json" \
-                -d "{
-                \"content\": \"⚠️ SECURITY ALERT\nBranch: ${GITHUB_REF_NAME}\nCommit: ${GITHUB_SHA}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\nStatic and dependency security scans have detected potential vulnerabilities. Please review the scan results.\"
-                }" \
-                ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
-          pip install -r requirements.txt
       - uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_SECURITY }}
