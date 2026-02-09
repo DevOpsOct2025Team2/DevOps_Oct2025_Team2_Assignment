@@ -120,7 +120,7 @@ jobs:
 
       - name: Trigger deployment to staging
         run: |
-          gh workflow run publish-ghcr.yml --ref ${{ github.ref }}
+          gh workflow run publish-ghcr-staging.yml --ref ${{ github.ref }}
         env:
           GH_TOKEN: ${{ github.token }}
 
