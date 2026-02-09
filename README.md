@@ -1,38 +1,67 @@
 # DevOps_Oct2025_Team2_Assignment
 
+A containerized Flask backend with role-based access control, user/file management, and audit logging. Deployed via GHCR and GitHub Pages.
+
+## Prerequisites
+
+- Python 3.8+
+- Docker & Docker Compose
+- Supabase account (free tier available)
+
 ## Project Setup
 
-1.  **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/YOUR-ORG/DevOps_Oct2025_Team2_Assignment.git
+   cd DevOps_Oct2025_Team2_Assignment
+   ```
 
-2.  **Environment Configuration**:
-    Copy `.env.example` to `.env` and fill in your Supabase credentials.
-    ```bash
-    cp .env.example .env
-    ```
-    Update the following in `.env`:
-    - `SUPABASE_URL`: Your Supabase Project URL
-    - `SUPABASE_ANON_KEY`: Your Supabase Anon Key
-    - `SUPABASE_SERVICE_KEY`: Your Supabase Service Role Key (for Admin operations)
-    - `JWT_SECRET_KEY`: A secure secret key for JWT (or use Supabase JWT verification)
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
+3. **Configure environment**:
+   ```bash
+   cp .env.example .env
+   ```
+   Update `.env` with Supabase credentials:
+   - `SUPABASE_URL`: Your Supabase project URL 
+   - `SUPABASE_ANON_KEY`: For client-side authentication
+   - `SUPABASE_SERVICE_KEY`: For admin operations 
+   - `JWT_SECRET_KEY`: For JWT token signing
+   - `SUPABASE_STORAGE_BUCKET`: Bucket name for file uploads (default: `user-files`)
+     
 ## Running the Application
 
-Start the Flask development server:
+**Local development**:
 ```bash
 python app.py
 ```
-The app will run at `http://localhost:5000`.
 
-### Admin Dashboard
-Access the Admin Dashboard at:
-`http://localhost:5000/admin`
+**Docker Compose**:
+```bash
+docker-compose up
+```
 
-## Running Tests
+**Manual Docker**:
+```bash
+docker build -t devops-flask:latest .
+docker run -p 5000:5000 \
+  -e SUPABASE_URL=$SUPABASE_URL \
+  -e SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY \
+  -e JWT_SECRET_KEY=$JWT_SECRET_KEY \
+  devops-flask:latest
+```
 
-Run the unit and security tests using `pytest`:
+Access at `http://localhost:5000`
+
+**Endpoints**:
+- User Dashboard: `/dashboard`
+- Admin Dashboard: `/admin`
+- Logout: `/logout`
+
+## Testing
+
 ```bash
 python -m pytest tests/
-```

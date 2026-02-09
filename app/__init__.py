@@ -21,6 +21,14 @@ def create_app(config_name=None):
     else:
         CORS(app, supports_credentials=True)
     
+    # Specify static and template folders in app root
+    app = Flask(
+        __name__,
+        static_folder=os.path.join(os.path.dirname(__file__), '..', 'static'),
+        static_url_path='/static',
+        template_folder=os.path.join(os.path.dirname(__file__), '..', 'templates')
+    )
+    
     # Register blueprints
     from app.routes import main_bp, api_bp
     app.register_blueprint(main_bp)

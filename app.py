@@ -19,5 +19,12 @@ if __name__ == "__main__":
     except (ValueError, TypeError):
         logger.warning("Invalid port configuration")
         port = 5000
-    logger.info("Starting Flask app on %s:%d (debug=%s)", host, port, debug_mode)
+    
+    # Suppress Flask's default verbose output, else it shows all addr
+    import logging as werkzeug_logging
+    werkzeug_logging.getLogger('werkzeug').setLevel(werkzeug_logging.ERROR)
+    
+    logger.info("Starting Flask app on http://localhost:%d (debug=%s)", port, debug_mode)
+    print(f"\n✓ Flask app running at http://localhost:{port}\n")
+    
     app.run(host=host, port=port, debug=debug_mode, use_reloader=False)
