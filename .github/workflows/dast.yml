@@ -2,6 +2,9 @@
 name: 3. DAST - Live Application Scan
 
 on:
+  workflow_run:
+    workflows: [ "Build and Publish Backend to GHCR (Staging)" ]
+    types: [ completed ]
   workflow_dispatch:
 
 permissions:
@@ -12,6 +15,7 @@ jobs:
   dast:
     name: OWASP ZAP Scan (DAST)
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     
     steps:
       # Step 1: Checkout code
