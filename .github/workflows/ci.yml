@@ -118,8 +118,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Simulated deployment
-        run: echo "Deploying automatically to staging"
+      - name: Trigger deployment to staging
+        run: |
+          gh workflow run publish-ghcr.yml --ref ${{ github.ref }}
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   deploy_production:
     name: Deploy to Production
@@ -134,8 +137,11 @@ jobs:
       - name: checkout code
         uses: actions/checkout@v4
 
-      - name: Simulated deployment
-        run: echo "Deploying to production after approval"
+      - name: Trigger deployment to production
+        run: |
+          gh workflow run publish-ghcr.yml --ref ${{ github.ref }}
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   # NOTIFICATION: Pipeline Status (main branch only)
   notify_pipeline_status:
@@ -161,12 +167,12 @@ jobs:
           color: ${{ contains(needs.*.result, 'failure') && '0xFF0000' || '0x00FF00' }}
           username: CI Pipeline Bot
 
-  # NOTIFICATION: Dev Alerts (feature and main branches)
+  # NOTIFICATION: Dev Alerts (all branches)
   notify_dev_alerts:
     name: Notify Dev Alerts
     runs-on: ubuntu-latest
     needs: [test]
-    if: always() && (startsWith(github.ref_name, 'feature/') || github.ref_name == 'main') && needs.test.result == 'failure'
+    if: always() && needs.test.result == 'failure'
     steps:
       - uses: sarisia/actions-status-discord@v1
         with:
@@ -180,12 +186,12 @@ jobs:
           color: 0xFFFF00 
           username: Dev Alert Bot
 
-  # NOTIFICATION: Security Alerts (feature and main branches)
+  # NOTIFICATION: Security Alerts (all branches)
   notify_security_alerts:
     name: Notify Security Alerts
     runs-on: ubuntu-latest
     needs: [security_scans] 
-    if: always() && (startsWith(github.ref_name, 'feature/') || github.ref_name == 'main') && needs.security_scans.result == 'failure'
+    if: always() && needs.security_scans.result == 'failure'
     steps:
       - uses: sarisia/actions-status-discord@v1
         with:
