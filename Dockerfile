@@ -20,6 +20,8 @@ COPY app ./app
 COPY templates ./templates
 COPY static ./static
 
+# expose flask/gunicorn port
 EXPOSE 5000
 
-CMD ["python", "app.py"]
+# run with gunicorn (production-ready)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "app:app"]
