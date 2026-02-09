@@ -25,7 +25,7 @@ function getAuthHeaders() {
 function initUserInfo() {
     const userRole = document.getElementById('userRole');
     if (userRole && userRole.textContent) {
-        return; 
+        return;
     }
 }
 
@@ -208,7 +208,7 @@ function renderFiles(data) {
         const createdAt = String(file.created_at || '');
 
         const row = document.createElement('tr');
-        
+
         const nameCell = document.createElement('td');
         nameCell.textContent = filename;
         row.appendChild(nameCell);
@@ -226,6 +226,13 @@ function renderFiles(data) {
         row.appendChild(dateCell);
 
         const actionCell = document.createElement('td');
+
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'btn btn-download';
+        downloadBtn.textContent = 'Download';
+        downloadBtn.onclick = () => downloadFile(encodeURIComponent(fileId), filename);
+        actionCell.appendChild(downloadBtn);
+
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
         deleteBtn.textContent = 'Delete';
@@ -258,6 +265,65 @@ function renderPagination(data, perPage) {
     }
 
     pagination.innerHTML = html;
+}
+
+async function downloadFile(fileId, filename) {
+    if (!fileId || typeof fileId !== 'string') {
+        showMessage('Invalid file ID', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/v1/files/${encodeURIComponent(fileId)}/download`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: getAuthHeaders()
+        });
+
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+
+        if (response.status === 403) {
+            const data = await response.json();
+            showMessage(data.message || 'You do not have permission to download this file', 'error');
+            return;
+        }
+
+        if (response.status === 404) {
+            showMessage('File not found', 'error');
+            return;
+        }
+
+        if (!response.ok) {
+            let errorMsg = 'Failed to download file';
+            try {
+                const data = await response.json();
+                errorMsg = data.message || data.error || errorMsg;
+            } catch (e) {
+                // response may not be JSON for unexpected errors
+            }
+            showMessage(errorMsg, 'error');
+            return;
+        }
+
+        // Create a blob from the response and trigger browser download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'download';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        showMessage('File downloaded successfully', 'success');
+    } catch (error) {
+        console.error('Error downloading file:', error);
+        showMessage('Error downloading file', 'error');
+    }
 }
 
 async function deleteFile(fileId) {
