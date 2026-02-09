@@ -131,12 +131,9 @@ jobs:
       name: Production
 
     steps:
-      - name: checkout code
-        uses: actions/checkout@v4
-
       - name: Trigger deployment to production
         run: |
-          gh workflow run publish-ghcr.yml --ref ${{ github.ref }}
+          gh workflow run publish-ghcr.yml --ref ${{ github.ref_name }}
         env:
           GH_TOKEN: ${{ github.token }}
 
