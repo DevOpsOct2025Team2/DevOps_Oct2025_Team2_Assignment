@@ -3,8 +3,9 @@ LICENSE*
 README*
 .git*
 
-# VSCode files
+# VSCode / IDE files
 .vscode/
+.idea/
 
 # Python files
 */__pycache__/
@@ -13,14 +14,29 @@ README*
 
 # Docker files
 Dockerfile
+docker-compose.yml
 compose.yml
 compose.*.yml
 
 # Environments
 .env
+.env.*
 .venv/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Tests
+tests/
+
+# Logs
+*.log
+audit.log
+
+# Debug / utility scripts
+debug_*.py
+
+# GitHub workflows
+.github/
