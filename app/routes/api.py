@@ -1,23 +1,28 @@
-import logging, os
+import io
+import logging
+import os
 from unittest import result
-from flask import current_app, jsonify, request, g, session
+
+from flask import current_app, g, jsonify, request, send_file, session
 from werkzeug.utils import secure_filename
+
+from app.audit.log import log_admin_action
 from app.routes import api_bp
 from app.security import login_required
 from app.services import auth_service
-from app.services.user_service import UserService
 from app.services.file_service import FileService
-from app.audit.log import log_admin_action
+from app.services.user_service import UserService
 
 # audit logging
 audit_logger = logging.getLogger("audit")
 audit_logger.setLevel(logging.INFO)
 if not audit_logger.handlers:
-    audit_handler = logging.FileHandler('audit.log')
-    audit_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+    audit_handler = logging.FileHandler("audit.log")
+    audit_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
     audit_logger.addHandler(audit_handler)
 
 logger = logging.getLogger(__name__)
+
 
 def _sanitize_for_log(value):
     """Remove char that can break log structure from user-controlled values before logging"""
@@ -36,6 +41,7 @@ def _get_current_user_info():
         role = getattr(user, "role", None) if user else None
         return username, role
 
+
 def _get_current_user_id():
     user = g.get("current_user")
     if isinstance(user, dict):
@@ -44,11 +50,24 @@ def _get_current_user_id():
         return ""
     return str(getattr(user, "sub", "") or getattr(user, "id", "")).strip()
 
-ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'zip'}
+
+ALLOWED_EXTENSIONS = {
+    "pdf",
+    "doc",
+    "docx",
+    "txt",
+    "xls",
+    "xlsx",
+    "jpg",
+    "jpeg",
+    "png",
+    "zip",
+}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
+
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 @api_bp.route("/auth/login", methods=["POST"])
@@ -60,7 +79,10 @@ def login():
     if not username or not password:
         return (
             jsonify(
-                {"error": "invalid_request", "message": "Username and password are required."}
+                {
+                    "error": "invalid_request",
+                    "message": "Username and password are required.",
+                }
             ),
             400,
         )
@@ -68,31 +90,40 @@ def login():
     try:
         user = auth_service.authenticate_user(username, password)
     except RuntimeError:
-        return jsonify({
-            "error": "server_configuration",
-            "message": "Authentication service is not configured.",
-        }), 500
-    
+        return jsonify(
+            {
+                "error": "server_configuration",
+                "message": "Authentication service is not configured.",
+            }
+        ), 500
+
     if not user:
         return (
-            jsonify({"error": "invalid_credentials", "message": "Invalid username or password."}),
+            jsonify(
+                {
+                    "error": "invalid_credentials",
+                    "message": "Invalid username or password.",
+                }
+            ),
             401,
         )
 
     token = auth_service.create_access_token(user, current_app.config)
-    
+
     user_role = user.get("role", "").lower()
     if user_role == "admin":
         redirect_to = "/admin"
     else:
         redirect_to = "/dashboard"
 
-    response = jsonify({
-        "message": "Login successful.",
-        "role": user_role,
-        "redirect_to": redirect_to,
-    })
-    
+    response = jsonify(
+        {
+            "message": "Login successful.",
+            "role": user_role,
+            "redirect_to": redirect_to,
+        }
+    )
+
     response.set_cookie(
         current_app.config.get("AUTH_COOKIE_NAME", "access_token"),
         token,
@@ -118,11 +149,13 @@ def logout():
     try:
         session.clear()
 
-        response = jsonify({
-            "success": True,
-            "message": "You have been logged out successfully.",
-            "redirect_to": "/login"
-        })
+        response = jsonify(
+            {
+                "success": True,
+                "message": "You have been logged out successfully.",
+                "redirect_to": "/login",
+            }
+        )
 
         auth_cookie_name = current_app.config.get("AUTH_COOKIE_NAME", "access_token")
         cookies_to_clear = [auth_cookie_name, "refresh_token", "session"]
@@ -143,11 +176,16 @@ def logout():
         return response, 200
 
     except Exception:
-        audit_logger.exception("Unexpected logout error for %s", _sanitize_for_log(username))
-        return jsonify({
-            "success": False,
-            "message": "An internal server error occurred.",
-        }), 500
+        audit_logger.exception(
+            "Unexpected logout error for %s", _sanitize_for_log(username)
+        )
+        return jsonify(
+            {
+                "success": False,
+                "message": "An internal server error occurred.",
+            }
+        ), 500
+
 
 @api_bp.route("/auth/me", methods=["GET"])
 @login_required
@@ -194,12 +232,16 @@ def create_user():
     # validate password
     if not password or len(password) < 8:
         return jsonify(
-            {"error": "Password must be at least 8 characters with letters and numbers."}
+            {
+                "error": "Password must be at least 8 characters with letters and numbers."
+            }
         ), 400
 
     if not any(c.isdigit() for c in password) or not any(c.isalpha() for c in password):
         return jsonify(
-            {"error": "Password must be at least 8 characters with letters and numbers."}
+            {
+                "error": "Password must be at least 8 characters with letters and numbers."
+            }
         ), 400
 
     try:
@@ -262,7 +304,8 @@ def get_all_users():
 
     if user_role != "admin":
         audit_logger.warning(
-            "Unauthorized user list access attempt by %s", _sanitize_for_log(username_actor)
+            "Unauthorized user list access attempt by %s",
+            _sanitize_for_log(username_actor),
         )
         return jsonify({"error": "Unauthorized"}), 403
 
@@ -294,158 +337,271 @@ def get_all_users():
 
         return jsonify(result), 200
     except Exception:
-        current_app.logger.logger.error("Error fetching users", exc_info=True)
-        return jsonify({'message': 'Failed to fetch users'}), 500
+        current_app.logger.error("Error fetching users", exc_info=True)
+        return jsonify({"message": "Failed to fetch users"}), 500
 
 
-@api_bp.route('/files/me', methods=['GET'])
+@api_bp.route("/files/me", methods=["GET"])
 @login_required
 def get_user_files():
     username_actor, user_role = _get_current_user_info()
     user_id = _get_current_user_id()
-    
-    if user_role == 'admin':
-        audit_logger.warning("Admin user %s attempted to access /files/me endpoint", username_actor)
-        return jsonify({'error': 'Unauthorized'}), 403
-    
+
+    if user_role == "admin":
+        audit_logger.warning(
+            "Admin user %s attempted to access /files/me endpoint", username_actor
+        )
+        return jsonify({"error": "Unauthorized"}), 403
+
     if not user_id:
-        audit_logger.warning("User %s attempted to access files without valid user_id", username_actor)
-        return jsonify({'error': 'Invalid user session'}), 400
-    
+        audit_logger.warning(
+            "User %s attempted to access files without valid user_id", username_actor
+        )
+        return jsonify({"error": "Invalid user session"}), 400
+
     try:
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
-        sort_by = request.args.get('sort_by', 'created_at')
-        order = request.args.get('order', 'desc')
-        
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 10, type=int)
+        sort_by = request.args.get("sort_by", "created_at")
+        order = request.args.get("order", "desc")
+
         # check pagination
         if page < 1 or per_page < 1 or per_page > 100:
-            return jsonify({'error': 'Invalid pagination parameters'}), 400
-        
+            return jsonify({"error": "Invalid pagination parameters"}), 400
+
         supabase = auth_service.get_supabase_client()
         if not supabase:
             current_app.logger.error("Supabase client is None")
-            return jsonify({'error': 'Database service unavailable'}), 500
-        
+            return jsonify({"error": "Database service unavailable"}), 500
+
         file_service = FileService(supabase)
         result = file_service.get_user_files(
             user_id=user_id,
             page=page,
             per_page=per_page,
             sort_by=sort_by,
-            sort_order=order
+            sort_order=order,
         )
-        
-        if 'error' in result:
-            return jsonify({'message': result['error']}), 500
-        
+
+        if "error" in result:
+            return jsonify({"message": result["error"]}), 500
+
         safe_user = _sanitize_for_log(username_actor)
         safe_page = int(page)
         audit_logger.info("User %s retrieved file list (page %d)", safe_user, safe_page)
-        
+
         return jsonify(result), 200
     except Exception:
         current_app.logger.error("Error retrieving user files", exc_info=True)
-        return jsonify({'message': 'Failed to retrieve files'}), 500
+        return jsonify({"message": "Failed to retrieve files"}), 500
 
 
-@api_bp.route('/files/<file_id>', methods=['DELETE'])
+@api_bp.route("/files/<file_id>/download", methods=["GET"])
+@login_required
+def download_file(file_id):
+    """Download a file owned by the current regular user.
+
+    - Only users with the 'regular' role may call this endpoint.
+    - The file must belong to the requesting user (owner_id == current user).
+    - Unauthorized / forbidden attempts are logged for security monitoring.
+    """
+    username_actor, user_role = _get_current_user_info()
+    user_id = _get_current_user_id()
+
+    # RBAC: only regular users may download files
+    if user_role != "regular":
+        safe_username = _sanitize_for_log(username_actor)
+        safe_file_id = _sanitize_for_log(file_id)
+        remote_addr = _sanitize_for_log(request.remote_addr or "unknown")
+        audit_logger.warning(
+            "Non-regular user %s (role=%s) attempted to download file_id=%s from IP %s",
+            safe_username,
+            _sanitize_for_log(user_role),
+            safe_file_id,
+            remote_addr,
+        )
+        return jsonify(
+            {"error": "Unauthorized", "message": "Insufficient permissions."}
+        ), 403
+
+    if not user_id:
+        audit_logger.warning(
+            "User %s attempted file download without valid user_id",
+            _sanitize_for_log(username_actor),
+        )
+        return jsonify({"error": "Invalid user session"}), 400
+
+    if not file_id or not isinstance(file_id, str):
+        return jsonify({"error": "Invalid file ID"}), 400
+
+    try:
+        supabase = auth_service.get_supabase_client()
+        if not supabase:
+            current_app.logger.error("Supabase client is None")
+            return jsonify({"error": "Database service unavailable"}), 500
+
+        file_service = FileService(supabase)
+        result = file_service.get_file_for_download(user_id=user_id, file_id=file_id)
+
+        safe_file_id = _sanitize_for_log(file_id)
+        safe_username = _sanitize_for_log(username_actor)
+        remote_addr = _sanitize_for_log(request.remote_addr or "unknown")
+
+        if "error" in result:
+            # Ownership violation → 403
+            if result.get("forbidden"):
+                audit_logger.warning(
+                    "UNAUTHORIZED DOWNLOAD: user %s (id=%s) attempted to download file_id=%s from IP %s",
+                    safe_username,
+                    _sanitize_for_log(user_id),
+                    safe_file_id,
+                    remote_addr,
+                )
+                return jsonify({"error": "forbidden", "message": result["error"]}), 403
+
+            # File not found
+            if "not found" in result["error"].lower():
+                return jsonify({"error": "not_found", "message": result["error"]}), 404
+
+            # Legacy file uploaded before storage integration
+            if "re-upload" in result["error"].lower():
+                return jsonify(
+                    {"error": "legacy_file", "message": result["error"]}
+                ), 410
+
+            # Any other service-level error
+            return jsonify(
+                {"error": "download_failed", "message": result["error"]}
+            ), 500
+
+        # Success – stream the file bytes back to the client
+        file_bytes = result["file_bytes"]
+        filename = result["filename"]
+        file_type = result.get("file_type", "application/octet-stream")
+
+        audit_logger.info(
+            "User %s downloaded file_id=%s (%s) from IP %s",
+            safe_username,
+            safe_file_id,
+            _sanitize_for_log(filename),
+            remote_addr,
+        )
+
+        return send_file(
+            io.BytesIO(file_bytes),
+            mimetype=file_type,
+            as_attachment=True,
+            download_name=filename,
+        )
+
+    except Exception:
+        current_app.logger.error("Error downloading file", exc_info=True)
+        return jsonify({"error": "Failed to download file"}), 500
+
+
+@api_bp.route("/files/<file_id>", methods=["DELETE"])
 @login_required
 def delete_file(file_id):
     username_actor, user_role = _get_current_user_info()
     user_id = _get_current_user_id()
-    
-    if user_role == 'admin':
-        audit_logger.warning("Admin user %s attempted to delete file via /files endpoint", username_actor)
-        return jsonify({'error': 'Unauthorized'}), 403
-    
+
+    if user_role == "admin":
+        audit_logger.warning(
+            "Admin user %s attempted to delete file via /files endpoint", username_actor
+        )
+        return jsonify({"error": "Unauthorized"}), 403
+
     if not user_id:
-        return jsonify({'error': 'Invalid user session'}), 400
-    
+        return jsonify({"error": "Invalid user session"}), 400
+
     try:
         supabase = auth_service.get_supabase_client()
         if not supabase:
-            return jsonify({'error': 'Database service unavailable'}), 500
-        
+            return jsonify({"error": "Database service unavailable"}), 500
+
         file_service = FileService(supabase)
         result = file_service.delete_file(user_id=user_id, file_id=file_id)
-        
+
         safe_file_id = _sanitize_for_log(file_id)
         safe_username = _sanitize_for_log(username_actor)
-        
-        if 'error' in result:
+
+        if "error" in result:
             audit_logger.warning(
                 "User %s attempted unauthorized file deletion for file_id: %s",
                 safe_username,
-                safe_file_id
+                safe_file_id,
             )
             return jsonify(result), 403
-        
+
         audit_logger.info("User %s deleted file %s", safe_username, safe_file_id)
-        
+
         return jsonify(result), 200
     except Exception:
         current_app.logger.error("Error deleting file", exc_info=True)
-        return jsonify({'error': 'Failed to delete file'}), 500
+        return jsonify({"error": "Failed to delete file"}), 500
 
-@api_bp.route('/files/upload', methods=['POST'])
+
+@api_bp.route("/files/upload", methods=["POST"])
 @login_required
 def upload_file():
     username_actor, user_role = _get_current_user_info()
     user_id = _get_current_user_id()
-    
-    if user_role == 'admin':
-        audit_logger.warning("Admin user %s attempted to upload file via /files endpoint", username_actor)
-        return jsonify({'error': 'Unauthorized'}), 403
-    
+
+    if user_role == "admin":
+        audit_logger.warning(
+            "Admin user %s attempted to upload file via /files endpoint", username_actor
+        )
+        return jsonify({"error": "Unauthorized"}), 403
+
     if not user_id:
-        return jsonify({'error': 'Invalid user session'}), 400
-    
+        return jsonify({"error": "Invalid user session"}), 400
+
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file part in the request'}), 400
-        
-        file = request.files['file']
-        
-        if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
-        
+        if "file" not in request.files:
+            return jsonify({"error": "No file part in the request"}), 400
+
+        file = request.files["file"]
+
+        if file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
+
         if not allowed_file(file.filename):
-            return jsonify({'error': 'File type not allowed'}), 400
-        
+            return jsonify({"error": "File type not allowed"}), 400
+
         file.seek(0, os.SEEK_END)
         file_length = file.tell()
         file.seek(0)
-        
+
         if file_length > MAX_FILE_SIZE:
-            return jsonify({'error': 'File exceeds maximum size limit'}), 400
-        
+            return jsonify({"error": "File exceeds maximum size limit"}), 400
+
         filename = secure_filename(file.filename)
         file_data = file.read()
-        
+
         supabase = auth_service.get_supabase_client()
         if not supabase:
-            return jsonify({'error': 'Database service unavailable'}), 500
-        
+            return jsonify({"error": "Database service unavailable"}), 500
+
         file_service = FileService(supabase)
         result = file_service.upload_file(
             user_id=user_id,
             filename=filename,
             file_data=file_data,
             file_type=file.mimetype,
-            username=username_actor
+            username=username_actor,
         )
-        
-        if 'error' in result:
+
+        if "error" in result:
             return jsonify(result), 500
-        
+
         safe_user = _sanitize_for_log(username_actor)
         audit_logger.info("User %s uploaded file %s", safe_user, filename)
-        
+
         return jsonify(result), 201
     except Exception:
         current_app.logger.error("Error uploading file", exc_info=True)
-        return jsonify({'error': 'Failed to upload file'}), 500
+        return jsonify({"error": "Failed to upload file"}), 500
+
 
 @api_bp.route("/admin/users/<user_id>", methods=["DELETE"])
 @login_required
@@ -468,7 +624,8 @@ def delete_user(user_id):
     current_user_id = _get_current_user_id()
     if current_user_id and target_user_id == current_user_id:
         audit_logger.warning(
-            "Admin %s attempted to delete their own account", _sanitize_for_log(username_actor)
+            "Admin %s attempted to delete their own account",
+            _sanitize_for_log(username_actor),
         )
         return jsonify({"error": "You cannot delete your own account."}), 400
 
@@ -479,9 +636,13 @@ def delete_user(user_id):
         if not existing_user:
             return jsonify({"error": "User not found."}), 404
 
-        if current_user_id and str(existing_user.get("id", "")).strip() == current_user_id:
+        if (
+            current_user_id
+            and str(existing_user.get("id", "")).strip() == current_user_id
+        ):
             audit_logger.warning(
-                "Admin %s attempted to delete their own account", _sanitize_for_log(username_actor)
+                "Admin %s attempted to delete their own account",
+                _sanitize_for_log(username_actor),
             )
             return jsonify({"error": "You cannot delete your own account."}), 400
 
@@ -493,11 +654,15 @@ def delete_user(user_id):
             return jsonify({"error": "Failed to delete user."}), 500
 
         safe_actor = _sanitize_for_log(username_actor)
-        safe_target_username = _sanitize_for_log(existing_user.get("username") or target_user_id)
+        safe_target_username = _sanitize_for_log(
+            existing_user.get("username") or target_user_id
+        )
         safe_target_id = _sanitize_for_log(target_user_id)
         remote_addr = _sanitize_for_log(request.remote_addr or "")
 
-        log_admin_action(username_actor, f"Deleted user {safe_target_username} (id={safe_target_id})")
+        log_admin_action(
+            username_actor, f"Deleted user {safe_target_username} (id={safe_target_id})"
+        )
         audit_logger.info(
             "Admin %s deleted user %s (id=%s) from IP %s",
             safe_actor,
