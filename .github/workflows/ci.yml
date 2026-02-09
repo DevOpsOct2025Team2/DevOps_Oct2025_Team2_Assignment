@@ -20,8 +20,6 @@ env:
   JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
   SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
   SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-  TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
-  TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
 
 jobs:
   lint:
@@ -31,6 +29,9 @@ jobs:
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+  
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
