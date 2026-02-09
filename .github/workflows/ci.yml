@@ -46,7 +46,7 @@ jobs:
           pip install pytest-cov
       
       - name: Run linting
-        run: ruff check app tests --show-source
+        run: ruff check app tests --statistics
 
   test:
     name: Tests
