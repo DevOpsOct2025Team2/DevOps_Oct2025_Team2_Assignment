@@ -1,4 +1,4 @@
-name: Build and Publish Backend (GHCR)
+name: Build and Publish Backend + Frontend (GHCR)
 
 on:
   push:
