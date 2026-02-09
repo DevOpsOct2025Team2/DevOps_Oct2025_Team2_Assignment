@@ -1,9 +1,8 @@
 name: Build and Publish Backend (GHCR)
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -14,7 +13,7 @@ jobs:
   build:
     name: Build, scan and publish
     runs-on: ubuntu-latest
-    environment: production
+    environment: Production
     steps:
       - uses: actions/checkout@v4
 
