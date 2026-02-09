@@ -337,7 +337,7 @@ def get_all_users():
 
         return jsonify(result), 200
     except Exception:
-        current_app.logger.logger.error("Error fetching users", exc_info=True)
+        current_app.logger.error("Error fetching users", exc_info=True)
         return jsonify({"message": "Failed to fetch users"}), 500
 
 
