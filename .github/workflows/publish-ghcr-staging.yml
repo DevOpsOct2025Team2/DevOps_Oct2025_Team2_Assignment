@@ -39,14 +39,15 @@ jobs:
             ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
             ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:staging
     
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Deploy to Cloud Run (Staging)
+      - name: Setup gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
         run: |
           gcloud run deploy devops-oct2025-backend-staging \
             --quiet \
