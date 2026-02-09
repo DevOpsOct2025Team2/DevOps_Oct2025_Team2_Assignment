@@ -302,7 +302,7 @@ def get_all_users():
 @login_required
 def get_user_files():
     username_actor, user_role = _get_current_user_info()
-    user_id = g.current_user.get('id') if isinstance(g.current_user, dict) else getattr(g.current_user, 'id', None)
+    user_id = _get_current_user_id()
     
     if user_role == 'admin':
         audit_logger.warning("Admin user %s attempted to access /files/me endpoint", username_actor)
@@ -353,7 +353,7 @@ def get_user_files():
 @login_required
 def delete_file(file_id):
     username_actor, user_role = _get_current_user_info()
-    user_id = g.current_user.get('id') if isinstance(g.current_user, dict) else getattr(g.current_user, 'id', None)
+    user_id = _get_current_user_id()
     
     if user_role == 'admin':
         audit_logger.warning("Admin user %s attempted to delete file via /files endpoint", username_actor)
@@ -392,7 +392,7 @@ def delete_file(file_id):
 @login_required
 def upload_file():
     username_actor, user_role = _get_current_user_info()
-    user_id = g.current_user.get('id') if isinstance(g.current_user, dict) else getattr(g.current_user, 'id', None)
+    user_id = _get_current_user_id()
     
     if user_role == 'admin':
         audit_logger.warning("Admin user %s attempted to upload file via /files endpoint", username_actor)

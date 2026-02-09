@@ -8,7 +8,7 @@ on:
   push:
     branches: [main, 'feature/*']
   pull_request:
-    branches: [main]
+    branches: [main, 'feature/*']
 
 env:
   PYTHON_VERSION: '3.14'
