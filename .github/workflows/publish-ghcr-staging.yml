@@ -1,8 +1,6 @@
-name: Build and Publish Backend (GHCR)
+name: Build and Publish Backend to GHCR (Staging)
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
   workflow_call:
 
@@ -13,9 +11,9 @@ permissions:
 
 jobs:
   build:
-    name: Build, scan and publish
+    name: Build, scan and publish to staging
     runs-on: ubuntu-latest
-    environment: production
+    environment: staging
     steps:
       - uses: actions/checkout@v4
 
@@ -32,11 +30,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      - name: Build and push image to staging
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
             ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
-            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.ref_name == 'main' && 'latest' || 'staging' }}
+            ghcr.io/devopsoct2025team   2/devops-oct2025-team2-assignment-backend:staging

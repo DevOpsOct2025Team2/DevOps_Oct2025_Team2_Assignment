@@ -69,7 +69,7 @@ class UserService:
                 'per_page': per_page,
                 'total': response.count or 0,
             }
-        except Exception:
+        except Exception as exc:
             logger.exception("Error fetching users")
             return {
                 "users": [],
