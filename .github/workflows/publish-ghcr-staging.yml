@@ -13,7 +13,7 @@ jobs:
   build:
     name: Build, scan and publish to staging
     runs-on: ubuntu-latest
-    environment: staging
+    environment: Staging
     steps:
       - uses: actions/checkout@v4
 
@@ -37,4 +37,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
-            ghcr.io/devopsoct2025team   2/devops-oct2025-team2-assignment-backend:staging
+            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:staging
