@@ -3,9 +3,11 @@ name: 2. SCA - Dependency Security Scan
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "staging" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "staging" ]
+  schedule:
+    - cron: "0 16 * * 1-6"  # Mon-Sat 16:00 UTC (skip Sunday complete scan)
 
 permissions:
   contents: read
