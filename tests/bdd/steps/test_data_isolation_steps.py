@@ -17,6 +17,16 @@ def _set_auth_cookie(client, app, token):
     client.set_cookie(cookie_name, token, domain="localhost", path="/")
 
 
+@given("an unauthenticated user")
+def given_unauthenticated_user(client, app):
+    cookie_name = app.config.get("AUTH_COOKIE_NAME", "access_token")
+    try:
+        client.delete_cookie("localhost", cookie_name, path="/")
+    except TypeError:
+        # Older Flask test client signature
+        client.delete_cookie(cookie_name, domain="localhost", path="/")
+
+
 @given(parsers.parse('an authenticated user with role "{role}" and id "{user_id}"'))
 def given_authenticated_user(client, app, role, user_id):
     role_value = (role or "").strip().lower()
@@ -39,6 +49,23 @@ def mock_delete_denied(monkeypatch, file_id):
         if target == expected_file_id:
             return {"error": "Unauthorized"}
         return {"success": True}
+
+    monkeypatch.setattr(FileService, "__init__", fake_init)
+    monkeypatch.setattr(FileService, "delete_file", fake_delete_file)
+
+
+@given(parsers.parse('the file service allows deleting file "{file_id}"'))
+def mock_delete_allowed(monkeypatch, file_id):
+    expected_file_id = file_id
+
+    def fake_init(self, supabase_client=None):
+        self.supabase = object()
+
+    def fake_delete_file(self, user_id, file_id=None, target_file_id=None):
+        target = file_id if file_id is not None else target_file_id
+        if target == expected_file_id:
+            return {"success": True}
+        return {"error": "Unauthorized"}
 
     monkeypatch.setattr(FileService, "__init__", fake_init)
     monkeypatch.setattr(FileService, "delete_file", fake_delete_file)

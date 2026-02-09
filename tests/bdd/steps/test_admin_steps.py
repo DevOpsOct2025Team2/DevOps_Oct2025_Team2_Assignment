@@ -22,6 +22,16 @@ def _set_auth_cookie(client, app, token):
     client.set_cookie(cookie_name, token, domain="localhost", path="/")
 
 
+@given("an unauthenticated user")
+def given_unauthenticated_user(client, app):
+    cookie_name = app.config.get("AUTH_COOKIE_NAME", "access_token")
+    try:
+        client.delete_cookie("localhost", cookie_name, path="/")
+    except TypeError:
+        # Older Flask test client signature
+        client.delete_cookie(cookie_name, domain="localhost", path="/")
+
+
 @given(parsers.parse('an authenticated user with role "{role}"'))
 def given_authenticated_user(client, app, role):
     role_value = (role or "").strip().lower()
@@ -56,6 +66,35 @@ def mock_user_list(monkeypatch):
 def given_new_user_payload(create_payload, username, password):
     create_payload["username"] = username
     create_payload["password"] = password
+
+
+@given(parsers.parse('an invalid user payload missing "{field}"'))
+def given_invalid_user_payload_missing_field(create_payload, field):
+    create_payload["username"] = "validuser"
+    create_payload["password"] = "Pass1234"
+    if field == "username":
+        create_payload["username"] = ""
+    elif field == "password":
+        create_payload["password"] = ""
+    else:
+        create_payload[field] = ""
+
+
+@given("the database reports a duplicate username")
+def mock_create_user_duplicate(monkeypatch):
+    class _FakeTable:
+        def insert(self, data):
+            return self
+
+        def execute(self):
+            raise Exception("duplicate key value violates unique constraint")
+
+    class _FakeSupabase:
+        def table(self, name):
+            return _FakeTable()
+
+    monkeypatch.setattr(auth_service, "get_supabase_client", lambda: _FakeSupabase())
+    monkeypatch.setattr(auth_service, "hash_password", lambda password: "hashed")
 
 
 @given("the database accepts the new user")

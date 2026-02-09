@@ -15,3 +15,19 @@ Feature: Data Isolation
     When I request my file list
     Then the response status should be 200
     And the response should include files
+
+  Scenario: User can delete their own file
+    Given an authenticated user with role "regular" and id "user-1"
+    And the file service allows deleting file "file-1"
+    When I delete my file "file-1"
+    Then the response status should be 200
+
+  Scenario: Unauthenticated user cannot list files
+    Given an unauthenticated user
+    When I request my file list
+    Then the response status should be 401
+
+  Scenario: Unauthenticated user cannot delete a file
+    Given an unauthenticated user
+    When I delete my file "file-1"
+    Then the response status should be 401

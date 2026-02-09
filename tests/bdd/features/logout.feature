@@ -10,6 +10,13 @@ Feature: Logout
     And the response redirect_to should be "/login"
     And the auth cookie should be cleared
 
+  Scenario: Admin user can log out
+    Given an authenticated user with role "admin"
+    When I submit a logout request
+    Then the response status should be 200
+    And the response redirect_to should be "/login"
+    And the auth cookie should be cleared
+
   Scenario: Unauthenticated user cannot log out
     Given no authentication
     When I submit a logout request
