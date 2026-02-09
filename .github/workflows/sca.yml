@@ -34,6 +34,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pip-audit
+
+      # Step 3b: Run pip-audit (Python SCA)
+      - name: Run pip-audit
+        run: |
+          mkdir -p reports
+          pip-audit -r requirements.txt -f json -o reports/pip-audit.json
       
       # Step 4: Run OWASP Dependency-Check
       - name: Run OWASP Dependency-Check
