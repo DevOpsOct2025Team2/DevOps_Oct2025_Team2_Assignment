@@ -1,4 +1,4 @@
-name: Build and Publish Backend to GHCR (Staging)
+name: Build and Publish Backend + Frontend to GHCR (Staging) 
 
 on:
   workflow_dispatch:
@@ -38,4 +38,21 @@ jobs:
           tags: |
             ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
             ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:staging
+    
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
 
+      - name: Deploy to Cloud Run (Staging)
+        run: |
+          gcloud run deploy devops-oct2025-backend-staging \
+            --quiet \
+            --image ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }} \
+            --platform managed \
+            --region us-central1 \
+            --port 5000 \
+            --allow-unauthenticated \
+            --set-env-vars SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }},JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
