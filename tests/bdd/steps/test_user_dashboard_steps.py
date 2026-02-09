@@ -19,6 +19,16 @@ def _set_auth_cookie(client, app, token):
     client.set_cookie(cookie_name, token, domain="localhost", path="/")
 
 
+@given("an unauthenticated user")
+def given_unauthenticated_user(client, app):
+    cookie_name = app.config.get("AUTH_COOKIE_NAME", "access_token")
+    try:
+        client.delete_cookie("localhost", cookie_name, path="/")
+    except TypeError:
+        # Older Flask test client signature
+        client.delete_cookie(cookie_name, domain="localhost", path="/")
+
+
 @given(parsers.parse('an authenticated user with role "{role}" and id "{user_id}"'))
 def given_authenticated_user(client, app, role, user_id):
     role_value = (role or "").strip().lower()

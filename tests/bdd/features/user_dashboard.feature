@@ -26,3 +26,13 @@ Feature: User Dashboard API
     Given an authenticated user with role "admin" and id "admin-1"
     When I request my file list
     Then the response status should be 403
+
+  Scenario: Unauthenticated user cannot list files
+    Given an unauthenticated user
+    When I request my file list
+    Then the response status should be 401
+
+  Scenario: Unauthenticated user cannot upload a file
+    Given an unauthenticated user
+    When I upload a file named "test.txt"
+    Then the response status should be 401

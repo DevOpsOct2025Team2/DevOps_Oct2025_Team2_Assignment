@@ -28,3 +28,33 @@ Feature: Admin Dashboard API
     Given an authenticated user with role "regular"
     When I request the admin user list
     Then the response status should be 403
+
+  Scenario: Unauthenticated user cannot list users
+    Given an unauthenticated user
+    When I request the admin user list
+    Then the response status should be 401
+
+  Scenario: Unauthenticated user cannot create a user
+    Given an unauthenticated user
+    And a new user payload with username "newuser" and password "Pass1234"
+    When I submit an admin create user request
+    Then the response status should be 401
+
+  Scenario: Admin cannot create a user with missing username
+    Given an authenticated user with role "admin"
+    And an invalid user payload missing "username"
+    When I submit an admin create user request
+    Then the response status should be 400
+
+  Scenario: Admin cannot create a user with missing password
+    Given an authenticated user with role "admin"
+    And an invalid user payload missing "password"
+    When I submit an admin create user request
+    Then the response status should be 400
+
+  Scenario: Admin cannot create a duplicate user
+    Given an authenticated user with role "admin"
+    And a new user payload with username "existinguser" and password "Pass1234"
+    And the database reports a duplicate username
+    When I submit an admin create user request
+    Then the response status should be 409
