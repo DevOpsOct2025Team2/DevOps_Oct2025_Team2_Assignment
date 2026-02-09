@@ -8,11 +8,11 @@ def create_app(config_name=None):
     # Create Flask app
     app = Flask(
         __name__,
-        static_folder=os.path.join(os.path.dirname(__file__), "..", "static"),
+        static_folder="static",
         static_url_path="/static",
-        template_folder=os.path.join(os.path.dirname(__file__), "..", "templates"),
+        template_folder="templates",
     )
-
+    
     # Load configuration
     config_name = config_name or os.getenv("FLASK_ENV", "development")
     app.config.from_object(
