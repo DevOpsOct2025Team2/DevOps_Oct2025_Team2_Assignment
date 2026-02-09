@@ -32,6 +32,7 @@ def app():
         AUTH_COOKIE_NAME="access_token",
         AUTH_COOKIE_SECURE=False,
         AUTH_COOKIE_SAMESITE="Lax",
+        SECRET_KEY="test-secret",
     )
     yield app
 
