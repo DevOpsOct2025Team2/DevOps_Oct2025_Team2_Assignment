@@ -37,4 +37,5 @@ jobs:
           push: true
           tags: |
             ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
-            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:staging
+            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:latest
+
