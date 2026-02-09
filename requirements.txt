@@ -20,3 +20,6 @@ ruff>=0.3.0
 # selenium 
 selenium==4.40.0
 webdriver-manager==4.0.2
+
+# gunicorn
+gunicorn==21.2.0
