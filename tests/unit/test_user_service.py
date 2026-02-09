@@ -24,6 +24,23 @@ def app_context():
         yield app
 
 
+@pytest.fixture
+def mock_query_result(mock_supabase):
+    """Reusable mock query chain for table operations"""
+    mock_query = MagicMock()
+    mock_query.ilike.return_value = mock_query
+    mock_query.order.return_value = mock_query
+    mock_query.range.return_value = mock_query
+
+    mock_response = MagicMock()
+    mock_response.data = []
+    mock_response.count = 0
+    mock_query.execute.return_value = mock_response
+
+    mock_supabase.table.return_value.select.return_value = mock_query
+    return mock_query
+
+
 def test_get_all_users_success(mock_supabase, app_context):
     """Test successful user retrieval"""
     mock_data = [
@@ -138,3 +155,29 @@ def test_get_user_by_id_error(mock_supabase, app_context):
     result = service.get_user_by_id("user1")
 
     assert result is None
+
+def test_get_user_by_id_user_not_found_returns_none(mock_supabase, app_context):
+    """Returns None when user doesn't exist"""
+    mock_supabase.auth.admin.get_user_by_id.return_value = None
+
+    service = UserService()
+    result = service.get_user_by_id("non-existent-user")
+
+    assert result is None
+
+
+def test_get_all_users_empty_result_returns_empty_list(mock_query_result, app_context):
+    """Empty database result returns empty users list"""
+    service = UserService()
+    result = service.get_all_users()
+
+    assert result["users"] == []
+    assert result["total"] == 0
+
+
+@pytest.mark.parametrize("per_page", [1, 10, 100])
+def test_get_all_users_valid_pagination_limits(mock_query_result, app_context, per_page):
+    """Valid pagination limits accepted"""
+    service = UserService()
+    result = service.get_all_users(per_page=per_page)
+    assert "users" in result
