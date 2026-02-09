@@ -40,3 +40,21 @@ jobs:
           tags: |
             ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
             ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.ref_name == 'main' && 'latest' || 'staging' }}
+       
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy devops-oct2025-backend \
+            --quiet \
+            --image ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }} \
+            --platform managed \
+            --region us-central1 \
+            --port 5000 \
+            --allow-unauthenticated \
+            --set-env-vars SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }},JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
