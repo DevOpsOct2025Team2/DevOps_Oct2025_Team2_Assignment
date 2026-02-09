@@ -23,22 +23,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push image to staging
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
-            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:staging
-    
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -47,11 +31,23 @@ jobs:
       - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build and push image to staging
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            us-central1-docker.pkg.dev/devopsoct2025team2/backend-repo/devops-backend:${{ github.sha }}
+            us-central1-docker.pkg.dev/devopsoct2025team2/backend-repo/devops-backend:staging
+    
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy devops-oct2025-backend-staging \
             --quiet \
-            --image ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }} \
+            --image us-central1-docker.pkg.dev/devopsoct2025team2/backend-repo/devops-backend:${{ github.sha }} \
             --platform managed \
             --region us-central1 \
             --port 5000 \
