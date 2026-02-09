@@ -105,43 +105,17 @@ jobs:
 
   deploy_staging:
     name: Deploy to Staging
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/publish-ghcr-staging.yml
     needs: [lint, test, security_scans]
-
-    # Only deploy when pushing to the staging branch
     if: github.ref_name == 'staging'
-
-    environment:
-      name: Staging
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Trigger deployment to staging
-        run: |
-          gh workflow run publish-ghcr-staging.yml --ref "${{ github.ref_name }}"
-        env:
-          GH_TOKEN: ${{ github.token }}
+    secrets: inherit
 
   deploy_production:
     name: Deploy to Production
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/publish-ghcr.yml
     needs: [lint, test, security_scans]
     if: github.ref == 'refs/heads/main'
-
-    environment: 
-      name: Production
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Trigger deployment to production
-        run: |
-          gh workflow run publish-ghcr.yml --ref ${{ github.ref_name }}
-        env:
-          GH_TOKEN: ${{ github.token }}
+    secrets: inherit
 
   # NOTIFICATION: Pipeline Status (main branch only)
   notify_pipeline_status:
