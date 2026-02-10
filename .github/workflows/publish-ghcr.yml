@@ -18,10 +18,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -31,8 +31,12 @@ jobs:
       - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+      - name: Login to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: us-central1-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
 
       - name: Build and push image
         uses: docker/build-push-action@v5
@@ -42,7 +46,7 @@ jobs:
           tags: |
             us-central1-docker.pkg.dev/devopsoct2025team2/backend-repo/devops-backend:${{ github.sha }}
             us-central1-docker.pkg.dev/devopsoct2025team2/backend-repo/devops-backend:${{ github.ref_name == 'main' && 'latest' || 'staging' }}
-       
+
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy devops-oct2025-backend \
