@@ -44,14 +44,14 @@ jobs:
           context: .
           push: true
           tags: |
-            us-central1-docker.pkg.dev/devopsoct2025team2/backend-repo/devops-backend:${{ github.sha }}
-            us-central1-docker.pkg.dev/devopsoct2025team2/backend-repo/devops-backend:${{ github.ref_name == 'main' && 'latest' || 'staging' }}
+            us-central1-docker.pkg.dev/devpopsoct2025team2/backend-repo/devops-backend:${{ github.sha }}
+            us-central1-docker.pkg.dev/devpopsoct2025team2/backend-repo/devops-backend:${{ github.ref_name == 'main' && 'latest' || 'staging' }}
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy devops-oct2025-backend \
             --quiet \
-            --image us-central1-docker.pkg.dev/devopsoct2025team2/backend-repo/devops-backend:${{ github.sha }} \
+            --image us-central1-docker.pkg.dev/devpopsoct2025team2/backend-repo/devops-backend:${{ github.sha }} \
             --platform managed \
             --region us-central1 \
             --port 5000 \
