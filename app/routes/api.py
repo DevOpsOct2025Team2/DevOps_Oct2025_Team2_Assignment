@@ -112,7 +112,7 @@ def login():
 
     user_role = user.get("role", "").lower()
     if user_role == "admin":
-        redirect_to = "/admin"
+        redirect_to = "/admin1"
     else:
         redirect_to = "/dashboard"
 
