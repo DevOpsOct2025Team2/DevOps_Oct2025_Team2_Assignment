@@ -57,3 +57,4 @@ jobs:
             --port 5000 \
             --allow-unauthenticated \
             --set-env-vars SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }},JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+            
