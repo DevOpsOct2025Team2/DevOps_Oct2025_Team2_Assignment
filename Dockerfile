@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 # templates and static files live inside app/
-COPY app.py .
+COPY main.py .
 COPY app ./app
 COPY scripts ./scripts
 
@@ -36,4 +36,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
 # Run with gunicorn (production-ready)
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "main:app"]
