@@ -181,3 +181,172 @@ def test_get_all_users_valid_pagination_limits(mock_query_result, app_context, p
     service = UserService()
     result = service.get_all_users(per_page=per_page)
     assert "users" in result
+
+@pytest.mark.parametrize(
+    "exception_message",
+    [
+        "Database connection failed",
+        "Unexpected error",
+    ],
+)
+def test_get_user_by_id_exception_paths(mock_supabase, app_context, exception_message):
+    """Exceptions during retrieval return None"""
+    mock_supabase.auth.admin.get_user_by_id.side_effect = Exception(exception_message)
+
+    service = UserService()
+    result = service.get_user_by_id("user1")
+
+    assert result is None
+
+@pytest.mark.parametrize(
+    "invalid_user_id",
+    [None, "", 123, []],
+)
+def test_get_user_by_id_invalid_inputs(invalid_user_id, mock_supabase, app_context):
+    """Invalid inputs are rejected safely"""
+    service = UserService()
+    assert service.get_user_by_id(invalid_user_id) is None
+
+@pytest.mark.parametrize(
+    "sort_field",
+    ["invalid", None, ""],
+)
+def test_get_all_users_invalid_sort_fields(mock_query_result, app_context, sort_field):
+    """Invalid sort fields fallback safely"""
+    service = UserService()
+    result = service.get_all_users(sort_by=sort_field)
+
+    assert "users" in result
+
+def test_get_all_users_none_data(mock_supabase, app_context):
+    """None data handled safely"""
+    mock_query = MagicMock()
+    mock_query.ilike.return_value = mock_query
+    mock_query.order.return_value = mock_query
+    mock_query.range.return_value = mock_query
+
+    mock_response = MagicMock()
+    mock_response.data = None
+    mock_response.count = 0
+    mock_query.execute.return_value = mock_response
+
+    mock_supabase.table.return_value.select.return_value = mock_query
+
+    service = UserService()
+    result = service.get_all_users()
+
+    assert result["users"] == []
+
+def test_get_all_users_partial_user_data(mock_supabase, app_context):
+    """Users with partial fields handled safely"""
+    mock_data = [{"id": "user1"}]
+
+    mock_query = MagicMock()
+    mock_query.ilike.return_value = mock_query
+    mock_query.order.return_value = mock_query
+    mock_query.range.return_value = mock_query
+
+    mock_response = MagicMock()
+    mock_response.data = mock_data
+    mock_response.count = 1
+    mock_query.execute.return_value = mock_response
+
+    mock_supabase.table.return_value.select.return_value = mock_query
+
+    service = UserService()
+    result = service.get_all_users()
+
+    assert isinstance(result["users"], list)
+
+def test_get_all_users_partial_user(mock_supabase, app_context):
+    """Users missing optional fields handled safely"""
+    mock_data = [{"id": "user1"}]
+
+    mock_query = MagicMock()
+    mock_query.ilike.return_value = mock_query
+    mock_query.order.return_value = mock_query
+    mock_query.range.return_value = mock_query
+
+    mock_response = MagicMock()
+    mock_response.data = mock_data
+    mock_response.count = 1
+    mock_query.execute.return_value = mock_response
+
+    mock_supabase.table.return_value.select.return_value = mock_query
+
+    service = UserService()
+    result = service.get_all_users()
+
+    assert isinstance(result["users"], list)
+
+def test_get_all_users_full_user_processing(mock_supabase, app_context):
+    """Ensure full user processing logic executes"""
+    mock_data = [
+        {
+            "id": "user1",
+            "username": "alex",
+            "email": "alex@test.com",
+            "role": "authenticated",
+            "created_at": "2024-01-01T00:00:00Z",
+            "is_active": True,
+        }
+    ]
+
+    mock_query = MagicMock()
+    mock_query.ilike.return_value = mock_query
+    mock_query.order.return_value = mock_query
+    mock_query.range.return_value = mock_query
+
+    mock_response = MagicMock()
+    mock_response.data = mock_data
+    mock_response.count = 1
+    mock_query.execute.return_value = mock_response
+
+    mock_supabase.table.return_value.select.return_value = mock_query
+
+    service = UserService()
+    result = service.get_all_users(page=1, per_page=10)
+
+    assert result["users"][0]["username"] == "alex"
+
+def test_create_user_success(mock_supabase, app_context):
+    mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock(
+        data=[{
+            "id": "user1",
+            "username": "alex",
+            "role": "regular"
+        }]
+    )
+
+    service = UserService()
+    result = service.create_user("alex", "hashed", "regular")
+
+    assert result["username"] == "alex"
+
+def test_delete_user_by_id_success(mock_supabase, app_context):
+    mock_supabase.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": "user1"}]
+    )
+
+    service = UserService()
+    result = service.delete_user_by_id("user1")
+
+    assert result["id"] == "user1"
+
+def test_delete_user_by_id_success(mock_supabase, app_context):
+    mock_supabase.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": "user1"}]
+    )
+
+    service = UserService()
+    result = service.delete_user_by_id("user1")
+
+    assert result["id"] == "user1"
+
+def test_delete_user_by_id_exception(mock_supabase, app_context):
+    mock_supabase.table.return_value.delete.side_effect = Exception("DB error")
+
+    service = UserService()
+    result = service.delete_user_by_id("user1")
+
+    assert result is None

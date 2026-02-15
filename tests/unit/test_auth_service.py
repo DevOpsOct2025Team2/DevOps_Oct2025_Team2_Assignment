@@ -214,3 +214,56 @@ def test_authenticate_user_failure_scenarios(user_state, expected):
     result = authenticate_user("testuser", user_state["password"], supabase_client=client)
     
     assert result == expected
+
+@pytest.mark.parametrize(
+    "db_response,expected",
+    [
+        (None, None),  # user not found
+        ({}, None),    # empty response
+    ],
+)
+def test_authenticate_user_user_not_found(db_response, expected):
+    """Authentication returns None when user does not exist"""
+    client = StubClient(db_response)
+    result = authenticate_user("unknown", "secret", supabase_client=client)
+    assert result == expected
+
+
+def test_decode_access_token_missing_sub_raises():
+    """Missing required 'sub' claim raises InvalidTokenError"""
+    token = jwt.encode(
+        {
+            "username": "eve",
+            "exp": datetime.datetime.utcnow()
+            + datetime.timedelta(minutes=10),
+        },
+        "test-secret",
+        algorithm="HS256",
+    )
+
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_access_token(
+            token,
+            {"JWT_SECRET_KEY": "test-secret"},
+        )
+
+
+def test_decode_access_token_missing_username_allowed():
+    """Token without username still decodes successfully"""
+    token = jwt.encode(
+        {
+            "sub": "u1",
+            "exp": datetime.datetime.utcnow()
+            + datetime.timedelta(minutes=10),
+        },
+        "test-secret",
+        algorithm="HS256",
+    )
+
+    decoded = decode_access_token(
+        token,
+        {"JWT_SECRET_KEY": "test-secret"},
+    )
+
+    assert isinstance(decoded, dict)
+    assert decoded["sub"] == "u1"
