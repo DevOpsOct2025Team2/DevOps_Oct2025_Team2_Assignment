@@ -1,6 +1,10 @@
 # DevOps_Oct2025_Team2_Assignment
 
-A containerized Flask backend with role-based access control, user/file management, and audit logging. Deployed via GHCR and GitHub Pages.
+A containerized Flask backend with role-based access control, user/file management, and audit logging. Deployed on Google Cloud Run.
+
+## Deployed Backend
+
+- https://devops-oct2025-backend-staging-607806148023.us-central1.run.app/login
 
 ## Prerequisites
 
@@ -65,3 +69,27 @@ Access at `http://localhost:5000`
 
 ```bash
 python -m pytest tests/
+```
+
+## CI/CD Pipeline (GitHub Actions)
+
+### Setup
+
+1. Add these repository secrets in GitHub:
+   - `GCP_SA_KEY`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_KEY`
+   - `JWT_SECRET_KEY`
+   - `TEST_USERNAME`
+   - `TEST_PASSWORD`
+2. (Optional) Add notification secrets:
+   - `DISCORD_WEBHOOK_PIPELINE`
+   - `DISCORD_WEBHOOK_DEV`
+   - `DISCORD_WEBHOOK_SECURITY`
+3. Ensure the GCP service account in `GCP_SA_KEY` has permission to deploy to Cloud Run and push to Artifact Registry.
+
+### Execute
+
+1. Push to `staging` to run CI and deploy staging.
+2. Push to `main` to run CI and deploy production.
+3. Monitor runs in `GitHub > Actions > CI Pipeline`.
