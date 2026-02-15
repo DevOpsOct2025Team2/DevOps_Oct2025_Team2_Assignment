@@ -17,6 +17,8 @@ gunicorn==22.0.0
 pytest>=8.0.0
 pytest-cov>=4.1.0
 pytest-bdd>=7.1.2
+robotframework>=7.0.0
+robotframework-seleniumlibrary>=6.0.0
 
 # Code Quality (CI only)
 ruff>=0.3.0

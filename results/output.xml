@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.4.1 (Python 3.8.2 on win32)" generated="2026-02-15T22:00:36.283079" rpa="false" schemaversion="5">
+<suite id="s1" name="Login Test" source="C:\Users\keaga\OneDrive - Ngee Ann Polytechnic\NP Y2S2\DevOps\Assignment\DevOps_Oct2025_Team2_Assignment\tests\robot\login_test.robot">
+<test id="s1-t1" name="Valid User Can Login" line="9">
+<kw name="Open Login Page" owner="login_keywords" type="SETUP">
+<kw name="Open Browser" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:36.836981" level="INFO">Opening browser 'Chrome' to base url 'http://localhost:5000/login'.</msg>
+<arg>${LOGIN_URL}</arg>
+<arg>${BROWSER}</arg>
+<doc>Opens a new browser instance to the optional ``url``.</doc>
+<status status="PASS" start="2026-02-15T22:00:36.836981" elapsed="2.696986"/>
+</kw>
+<kw name="Maximize Browser Window" owner="SeleniumLibrary">
+<doc>Maximizes current browser window.</doc>
+<status status="PASS" start="2026-02-15T22:00:39.535999" elapsed="0.083868"/>
+</kw>
+<kw name="Wait Until Element Is Visible" owner="SeleniumLibrary">
+<arg>${USERNAME_INPUT}</arg>
+<arg>10s</arg>
+<doc>Waits until the element ``locator`` is visible.</doc>
+<status status="PASS" start="2026-02-15T22:00:39.622987" elapsed="0.036788"/>
+</kw>
+<status status="PASS" start="2026-02-15T22:00:36.832283" elapsed="2.827492"/>
+</kw>
+<kw name="Login With Credentials" owner="login_keywords">
+<kw name="Input Text" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:39.665484" level="INFO">Typing text 'alice ' into text field 'id:username'.</msg>
+<arg>${USERNAME_INPUT}</arg>
+<arg>${username}</arg>
+<doc>Types the given ``text`` into the text field identified by ``locator``.</doc>
+<status status="PASS" start="2026-02-15T22:00:39.665484" elapsed="0.211193"/>
+</kw>
+<kw name="Input Password" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:39.876677" level="INFO">Typing password into text field 'id:password'.</msg>
+<msg time="2026-02-15T22:00:39.953879" level="INFO">Temporally setting log level to: NONE</msg>
+<arg>${PASSWORD_INPUT}</arg>
+<arg>${password}</arg>
+<doc>Types the given password into the text field identified by ``locator``.</doc>
+<status status="PASS" start="2026-02-15T22:00:39.876677" elapsed="0.166384"/>
+</kw>
+<kw name="Click Button" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:40.043061" level="INFO">Clicking button 'css:button[type="submit"]'.</msg>
+<arg>${SIGNIN_BUTTON}</arg>
+<doc>Clicks the button identified by ``locator``.</doc>
+<status status="PASS" start="2026-02-15T22:00:40.043061" elapsed="0.136763"/>
+</kw>
+<arg>${VALID_USERNAME}</arg>
+<arg>${VALID_PASSWORD}</arg>
+<status status="PASS" start="2026-02-15T22:00:39.659775" elapsed="0.520049"/>
+</kw>
+<kw name="Login Should Succeed" owner="login_keywords">
+<kw name="Wait Until Keyword Succeeds" owner="BuiltIn">
+<kw name="URL Should Match Login Success Pattern" owner="login_keywords">
+<kw name="Get Location" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:40.194017" level="INFO">${url} = http://localhost:5000/login</msg>
+<var>${url}</var>
+<doc>Returns the current browser window URL.</doc>
+<status status="PASS" start="2026-02-15T22:00:40.187604" elapsed="0.006413"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<msg time="2026-02-15T22:00:40.198160" level="FAIL">'http://localhost:5000/login' does not match '.*/(admin|dashboard)$'</msg>
+<arg>${url}</arg>
+<arg>.*/(admin|dashboard)$</arg>
+<doc>Fails if ``string`` does not match ``pattern`` as a regular expression.</doc>
+<status status="FAIL" start="2026-02-15T22:00:40.198160" elapsed="0.000000">'http://localhost:5000/login' does not match '.*/(admin|dashboard)$'</status>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Login redirected to ${url}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-15T22:00:40.198160" elapsed="0.000000"/>
+</kw>
+<status status="FAIL" start="2026-02-15T22:00:40.187604" elapsed="0.010556">'http://localhost:5000/login' does not match '.*/(admin|dashboard)$'</status>
+</kw>
+<kw name="URL Should Match Login Success Pattern" owner="login_keywords">
+<kw name="Get Location" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:41.215239" level="INFO">${url} = http://localhost:5000/admin</msg>
+<var>${url}</var>
+<doc>Returns the current browser window URL.</doc>
+<status status="PASS" start="2026-02-15T22:00:41.205814" elapsed="0.009425"/>
+</kw>
+<kw name="Should Match Regexp" owner="BuiltIn">
+<arg>${url}</arg>
+<arg>.*/(admin|dashboard)$</arg>
+<doc>Fails if ``string`` does not match ``pattern`` as a regular expression.</doc>
+<status status="PASS" start="2026-02-15T22:00:41.215239" elapsed="0.001129"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-15T22:00:41.217470" level="INFO">Login redirected to http://localhost:5000/admin</msg>
+<arg>Login redirected to ${url}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-15T22:00:41.216368" elapsed="0.001102"/>
+</kw>
+<status status="PASS" start="2026-02-15T22:00:41.204694" elapsed="0.012776"/>
+</kw>
+<arg>10x</arg>
+<arg>1s</arg>
+<arg>URL Should Match Login Success Pattern</arg>
+<doc>Runs the specified keyword and retries if it fails.</doc>
+<status status="PASS" start="2026-02-15T22:00:40.179824" elapsed="1.037646"/>
+</kw>
+<status status="PASS" start="2026-02-15T22:00:40.179824" elapsed="1.038215"/>
+</kw>
+<kw name="Close Browser Session" owner="login_keywords" type="TEARDOWN">
+<kw name="Close Browser" owner="SeleniumLibrary">
+<doc>Closes the current browser.</doc>
+<status status="PASS" start="2026-02-15T22:00:41.219168" elapsed="2.298589"/>
+</kw>
+<status status="PASS" start="2026-02-15T22:00:41.218587" elapsed="2.300784"/>
+</kw>
+<doc>Uses TEST_USERNAME and TEST_PASSWORD from environment.</doc>
+<status status="PASS" start="2026-02-15T22:00:36.832283" elapsed="6.687088"/>
+</test>
+<test id="s1-t2" name="Invalid Password Shows Error Message" line="14">
+<kw name="Open Login Page" owner="login_keywords" type="SETUP">
+<kw name="Open Browser" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:43.519371" level="INFO">Opening browser 'Chrome' to base url 'http://localhost:5000/login'.</msg>
+<arg>${LOGIN_URL}</arg>
+<arg>${BROWSER}</arg>
+<doc>Opens a new browser instance to the optional ``url``.</doc>
+<status status="PASS" start="2026-02-15T22:00:43.519371" elapsed="2.396361"/>
+</kw>
+<kw name="Maximize Browser Window" owner="SeleniumLibrary">
+<doc>Maximizes current browser window.</doc>
+<status status="PASS" start="2026-02-15T22:00:45.917589" elapsed="0.039655"/>
+</kw>
+<kw name="Wait Until Element Is Visible" owner="SeleniumLibrary">
+<arg>${USERNAME_INPUT}</arg>
+<arg>10s</arg>
+<doc>Waits until the element ``locator`` is visible.</doc>
+<status status="PASS" start="2026-02-15T22:00:45.957244" elapsed="0.046117"/>
+</kw>
+<status status="PASS" start="2026-02-15T22:00:43.519371" elapsed="2.483990"/>
+</kw>
+<kw name="Login With Credentials" owner="login_keywords">
+<kw name="Input Text" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:46.005974" level="INFO">Typing text 'alice ' into text field 'id:username'.</msg>
+<arg>${USERNAME_INPUT}</arg>
+<arg>${username}</arg>
+<doc>Types the given ``text`` into the text field identified by ``locator``.</doc>
+<status status="PASS" start="2026-02-15T22:00:46.005974" elapsed="0.185858"/>
+</kw>
+<kw name="Input Password" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:46.191832" level="INFO">Typing password into text field 'id:password'.</msg>
+<msg time="2026-02-15T22:00:46.256896" level="INFO">Temporally setting log level to: NONE</msg>
+<arg>${PASSWORD_INPUT}</arg>
+<arg>${password}</arg>
+<doc>Types the given password into the text field identified by ``locator``.</doc>
+<status status="PASS" start="2026-02-15T22:00:46.191832" elapsed="0.154534"/>
+</kw>
+<kw name="Click Button" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:46.346957" level="INFO">Clicking button 'css:button[type="submit"]'.</msg>
+<arg>${SIGNIN_BUTTON}</arg>
+<doc>Clicks the button identified by ``locator``.</doc>
+<status status="PASS" start="2026-02-15T22:00:46.346957" elapsed="0.137498"/>
+</kw>
+<arg>${VALID_USERNAME}</arg>
+<arg>${INVALID_PASSWORD}</arg>
+<status status="PASS" start="2026-02-15T22:00:46.003361" elapsed="0.481094"/>
+</kw>
+<kw name="Login Should Fail With Error" owner="login_keywords">
+<kw name="Wait Until Element Is Visible" owner="SeleniumLibrary">
+<arg>${ERROR_MESSAGE}</arg>
+<arg>10s</arg>
+<doc>Waits until the element ``locator`` is visible.</doc>
+<status status="PASS" start="2026-02-15T22:00:46.485703" elapsed="0.489713"/>
+</kw>
+<kw name="Get Text" owner="SeleniumLibrary">
+<msg time="2026-02-15T22:00:47.014239" level="INFO">${error_text} = Invalid username or password.</msg>
+<var>${error_text}</var>
+<arg>${ERROR_MESSAGE}</arg>
+<doc>Returns the text value of the element identified by ``locator``.</doc>
+<status status="PASS" start="2026-02-15T22:00:46.977442" elapsed="0.036797"/>
+</kw>
+<kw name="Should Not Be Empty" owner="BuiltIn">
+<msg time="2026-02-15T22:00:47.015267" level="INFO">Length is 29.</msg>
+<arg>${error_text}</arg>
+<doc>Verifies that the given item is not empty.</doc>
+<status status="PASS" start="2026-02-15T22:00:47.014239" elapsed="0.001028"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-15T22:00:47.015267" level="INFO">Login error shown: Invalid username or password.</msg>
+<arg>Login error shown: ${error_text}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-15T22:00:47.015267" elapsed="0.000000"/>
+</kw>
+<status status="PASS" start="2026-02-15T22:00:46.485703" elapsed="0.529564"/>
+</kw>
+<kw name="Close Browser Session" owner="login_keywords" type="TEARDOWN">
+<kw name="Close Browser" owner="SeleniumLibrary">
+<doc>Closes the current browser.</doc>
+<status status="PASS" start="2026-02-15T22:00:47.015267" elapsed="2.219682"/>
+</kw>
+<status status="PASS" start="2026-02-15T22:00:47.015267" elapsed="2.219682"/>
+</kw>
+<status status="PASS" start="2026-02-15T22:00:43.519371" elapsed="5.717944"/>
+</test>
+<doc>Login feature smoke tests for the web UI.</doc>
+<status status="PASS" start="2026-02-15T22:00:36.295691" elapsed="12.943927"/>
+</suite>
+<statistics>
+<total>
+<stat pass="2" fail="0" skip="0">All Tests</stat>
+</total>
+<tag>
+</tag>
+<suite>
+<stat name="Login Test" id="s1" pass="2" fail="0" skip="0">Login Test</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>
