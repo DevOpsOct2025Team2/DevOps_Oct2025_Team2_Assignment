@@ -10,13 +10,17 @@ supabase>=2.0.0
 PyJWT>=2.8.0
 bcrypt>=4.1.0
 
-# Testing
+# Production Server
+gunicorn==22.0.0
+
+# Testing (used in CI)
 pytest>=8.0.0
 pytest-cov>=4.1.0
+pytest-bdd>=7.1.2
 
-# Code Quality (optional, for CI)
+# Code Quality (CI only)
 ruff>=0.3.0
 
-# selenium 
-selenium==4.40.0
+# Browser testing
+selenium==4.27.1
 webdriver-manager==4.0.2

@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
 sys.path.append("./python_modules")
 import pytest
 
@@ -9,6 +10,7 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT_DIR / ".env")
 sys.path.append(str(ROOT_DIR))
 
 from app import create_app
@@ -32,6 +34,7 @@ def app():
         AUTH_COOKIE_NAME="access_token",
         AUTH_COOKIE_SECURE=False,
         AUTH_COOKIE_SAMESITE="Lax",
+        SECRET_KEY="test-secret",
     )
     yield app
 

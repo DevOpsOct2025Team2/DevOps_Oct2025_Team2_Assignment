@@ -1,4 +1,4 @@
-name: Build and Publish Backend to GHCR (Staging)
+name: Build and Publish Backend + Frontend to GHCR (Staging)
 
 on:
   workflow_dispatch:
@@ -18,17 +18,25 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v2
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Login to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: us-central1-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
 
       - name: Build and push image to staging
         uses: docker/build-push-action@v5
@@ -36,6 +44,16 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
-            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:latest
+            us-central1-docker.pkg.dev/devpopsoct2025team2/backend-repo/devops-backend:${{ github.sha }}
+            us-central1-docker.pkg.dev/devpopsoct2025team2/backend-repo/devops-backend:staging
 
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy devops-oct2025-backend-staging \
+            --quiet \
+            --image us-central1-docker.pkg.dev/devpopsoct2025team2/backend-repo/devops-backend:${{ github.sha }} \
+            --platform managed \
+            --region us-central1 \
+            --port 5000 \
+            --allow-unauthenticated \
+            --set-env-vars SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }},JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}

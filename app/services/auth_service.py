@@ -68,7 +68,10 @@ def create_access_token(user, config):
 
 def decode_access_token(token, config):
     try:
-        return jwt.decode(token, config["JWT_SECRET_KEY"], algorithms=["HS256"])
+        payload = jwt.decode(token, config["JWT_SECRET_KEY"], algorithms=["HS256"])
+        if "sub" not in payload:
+            raise jwt.InvalidTokenError("Missing required 'sub' claim")
+        return payload
     except jwt.ExpiredSignatureError:
         logger.warning("Token expired")
         raise
