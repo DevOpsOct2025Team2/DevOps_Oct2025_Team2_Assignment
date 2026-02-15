@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta, timezone
 import logging
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
 
 from app.services.supabase_client import get_supabase_client
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +33,7 @@ def get_user_by_username(username, supabase_client=None):
             return response.data
     except Exception:
         safe_username = (username or "").replace("\r", "").replace("\n", "")
-        logger.debug(f"User lookup error for {safe_username}")
+        logger.exception("User lookup error for %s", safe_username)
         return None
     return None
 
@@ -67,7 +68,10 @@ def create_access_token(user, config):
 
 def decode_access_token(token, config):
     try:
-        return jwt.decode(token, config["JWT_SECRET_KEY"], algorithms=["HS256"])
+        payload = jwt.decode(token, config["JWT_SECRET_KEY"], algorithms=["HS256"])
+        if "sub" not in payload:
+            raise jwt.InvalidTokenError("Missing required 'sub' claim")
+        return payload
     except jwt.ExpiredSignatureError:
         logger.warning("Token expired")
         raise
