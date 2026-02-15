@@ -53,10 +53,8 @@ jobs:
           tags: |
             us-central1-docker.pkg.dev/devpopsoct2025team2/backend-repo/devops-backend:${{ github.sha }}
             us-central1-docker.pkg.dev/devpopsoct2025team2/backend-repo/devops-backend:staging
-            ghcr.io/devpopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
-            ghcr.io/devpopsoct2025team2/devops-oct2025-team2-assignment-backend:staging
-            ghcr.io/devpopsoct2025team2/devops-oct2025-team2-assignment-frontend:${{ github.sha }}
-            ghcr.io/devpopsoct2025team2/devops-oct2025-team2-assignment-frontend:staging
+            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:${{ github.sha }}
+            ghcr.io/devopsoct2025team2/devops-oct2025-team2-assignment-backend:staging
 
       - name: Deploy to Cloud Run
         run: |
