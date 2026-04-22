@@ -21,7 +21,7 @@ robotframework>=7.0.0
 robotframework-seleniumlibrary>=6.0.0
 
 # Code Quality (CI only)
-ruff>=0.3.0
+ruff>=0.15.11
 
 # Browser testing
 selenium==4.27.1
